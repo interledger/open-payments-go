@@ -12,23 +12,21 @@ type WalletAddressControllers struct{
 	httpClient *http.Client
 }
 
-type WalletAddressResponse = was.WalletAddress
-
-func (wa *WalletAddressControllers) Get(url string) (WalletAddressResponse, error) {
+func (wa *WalletAddressControllers) Get(url string) (was.WalletAddress, error) {
     resp, err := wa.httpClient.Get(url)
     if err != nil {
-        return WalletAddressResponse{}, err
+        return was.WalletAddress{}, err
     }
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
-        return WalletAddressResponse{}, fmt.Errorf("failed to get wallet address: %s", resp.Status)
+        return was.WalletAddress{}, fmt.Errorf("failed to get wallet address: %s", resp.Status)
     }
 
-    var walletAddressResponse WalletAddressResponse
+    var walletAddressResponse was.WalletAddress
     err = json.NewDecoder(resp.Body).Decode(&walletAddressResponse)
     if err != nil {
-        return WalletAddressResponse{}, fmt.Errorf("failed to decoding response body: %s", err)
+        return was.WalletAddress{}, fmt.Errorf("failed to decoding response body: %s", err)
     }
 
     return walletAddressResponse, nil
