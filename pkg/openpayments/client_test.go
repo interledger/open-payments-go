@@ -9,12 +9,19 @@ import (
 )
 
 func TestWalletAddress_Get_SuccessfulResponse(t *testing.T) {
+	id := "https://rafiki.money/alice"
+	publicName := "Alice"
+	assetCode := "USD"
+	assetScale := 2
+	authServer := "https://rafiki.money/auth"
+
 	expectedWalletAddress := WalletAddressResponse{
-		ID:         "https://rafiki.money/alice",
-		PublicName: "Alice",
-		AssetCode:  "USD",
-		AssetScale: 2,
-		AuthServer: "https://rafiki.money/auth",
+			Id:         &id,
+			PublicName: &publicName,
+			AssetCode:  assetCode,
+			AssetScale: assetScale,
+			AuthServer: &authServer,
+			ResourceServer: nil,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

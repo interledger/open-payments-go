@@ -11,7 +11,8 @@ fi
 REPO_ROOT=$(git rev-parse --show-toplevel)
 OUT_DIR="$REPO_ROOT/api"
 TAG="$1"
-FILES=("schemas.yaml" "auth-server.yaml" "resource-server.yaml")
+FILES=(
+  "schemas.yaml" "auth-server.yaml" "resource-server.yaml" "wallet-address-server.yaml")
 
 make_url() {
     local file="$1"

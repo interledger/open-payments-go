@@ -2,18 +2,19 @@ package openpayments
 
 import (
 	"net/http"
+
+	"github.com/interledger/open-payments-go-sdk/internal/lib"
 )
 
 type Client struct {
 		httpClient *http.Client
-    WalletAddress *WalletAddress
+    WalletAddress *WalletAddressControllers
 }
 
-// NewClient creates a new Open Payments client.
 func NewClient() *Client {
-		httpClient := http.Client{}
+		httpClient := http.Client{Transport: &lib.HeaderTransport{Base: http.DefaultTransport}}
     return &Client{
 				httpClient: &httpClient,
-        WalletAddress: &WalletAddress{httpClient: &httpClient},
+        WalletAddress: &WalletAddressControllers{httpClient: &httpClient},
     }
 }
