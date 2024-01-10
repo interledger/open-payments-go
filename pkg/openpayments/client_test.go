@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	was "github.com/interledger/open-payments-go-sdk/pkg/generated/walletaddressserver"
 )
 
 func TestWalletAddress_Get_SuccessfulResponse(t *testing.T) {
@@ -15,7 +17,7 @@ func TestWalletAddress_Get_SuccessfulResponse(t *testing.T) {
 	assetScale := 2
 	authServer := "https://rafiki.money/auth"
 
-	expectedWalletAddress := WalletAddressResponse{
+	expectedWalletAddress := was.WalletAddress{
 			Id:         &id,
 			PublicName: &publicName,
 			AssetCode:  assetCode,
@@ -59,7 +61,7 @@ func TestWalletAddress_Get_FailedResponse(t *testing.T) {
 			t.Fatalf("expected an error, got nil")
 	}
 
-	if walletAddress != (WalletAddressResponse{}) {
+	if walletAddress != (was.WalletAddress{}) {
     t.Errorf("expected an empty wallet address, got %+v", walletAddress)
 	}
 
