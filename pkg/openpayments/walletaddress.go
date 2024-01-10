@@ -8,11 +8,11 @@ import (
 	was "github.com/interledger/open-payments-go-sdk/pkg/generated/walletaddressserver"
 )
 
-type WalletAddressControllers struct{
+type WalletAddressRoutes struct{
 	httpClient *http.Client
 }
 
-func (wa *WalletAddressControllers) Get(url string) (was.WalletAddress, error) {
+func (wa *WalletAddressRoutes) Get(url string) (was.WalletAddress, error) {
     resp, err := wa.httpClient.Get(url)
     if err != nil {
         return was.WalletAddress{}, err
@@ -32,7 +32,7 @@ func (wa *WalletAddressControllers) Get(url string) (was.WalletAddress, error) {
     return walletAddressResponse, nil
 }
 
-func (wa *WalletAddressControllers) GetKeys(url string) (was.JsonWebKeySet, error) {
+func (wa *WalletAddressRoutes) GetKeys(url string) (was.JsonWebKeySet, error) {
     resp, err := wa.httpClient.Get(url + "/jwks.json")
     if err != nil {
         return was.JsonWebKeySet{}, err
@@ -52,7 +52,7 @@ func (wa *WalletAddressControllers) GetKeys(url string) (was.JsonWebKeySet, erro
     return keyResponse, nil
 }
 
-func (wa *WalletAddressControllers) GetDIDDocument(url string) (was.DidDocument, error) {
+func (wa *WalletAddressRoutes) GetDIDDocument(url string) (was.DidDocument, error) {
     resp, err := wa.httpClient.Get(url + "/did.json")
     if err != nil {
         return was.DidDocument{}, err

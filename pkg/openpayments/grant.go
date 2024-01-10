@@ -12,7 +12,7 @@ import (
 	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
 )
 
-type GrantControllers struct{
+type GrantRoutes struct{
 	httpClient *http.Client
 }
 
@@ -21,7 +21,7 @@ type Grant struct {
 	Continue as.Continue
 }
 
-func (g *GrantControllers) Request(url string, requestBody as.PostRequestJSONBody) (Grant, error) {
+func (g *GrantRoutes) Request(url string, requestBody as.PostRequestJSONBody) (Grant, error) {
 		reqBodyBytes, err := json.Marshal(requestBody)
 		if err != nil {
 			return Grant{}, fmt.Errorf("failed to marshal request body: %s", err)
