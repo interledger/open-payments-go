@@ -1,4 +1,4 @@
-# removed refs to `optional-signature` and `optional-signature-input` (in `signature` and `signature-input`)
+# removed refs to `optional-signature` and `optional-signature-input` (in `signature` and `signature-input`) and inline instead
 # to fix error on `oapi-codegen -generate types ...`
 openapi: 3.1.0
 info:
@@ -30,8 +30,10 @@ info:
   contact:
     email: tech@interledger.org
 servers:
-  - url: "https://rafiki.money"
-    description: "Server for wallet address subresources (ie https://rafiki.money/alice)"
+  - url: "https://ilp.rafiki.money"
+    description: "Server for wallet address subresources (ie https://ilp.rafiki.money/alice)"
+  - url: "https://ilp.rafiki.money/.well-known/pay"
+    description: "Server for when the wallet address has no pathname (ie https://ilp.rafiki.money)"
 tags:
   - name: wallet-address
     description: wallet address operations
@@ -42,55 +44,6 @@ tags:
   - name: quote
     description: quote operations
 paths:
-  /:
-    get:
-      summary: Get a Wallet Address
-      tags:
-        - wallet-address
-      responses:
-        "200":
-          description: Wallet Address Found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/wallet-address"
-              examples:
-                Get wallet address for $rafiki.money/alice:
-                  value:
-                    id: "https://rafiki.money/alice"
-                    publicName: Alice
-                    assetCode: USD
-                    assetScale: 2
-                    authServer: "https://rafiki.money/auth"
-        "404":
-          description: Wallet Address Not Found
-      operationId: get-wallet-address
-      description: |-
-        Retrieve the public information of the Wallet Address.
-
-        This end-point should be open to anonymous requests as it allows clients to verify a Wallet Address URL and get the basic information required to construct new transactions and discover the grant request URL.
-
-        The content should be slow changing and cacheable for long periods. Servers SHOULD use cache control headers.
-      security: []
-      x-internal: false
-  /jwks.json:
-    get:
-      summary: Get the keys bound to a Wallet Address
-      tags:
-        - wallet-address
-      responses:
-        "200":
-          description: JWKS Document Found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/json-web-key-set"
-              examples: {}
-        "404":
-          description: JWKS Document Not Found
-      operationId: get-wallet-address-keys
-      description: Retrieve the public keys of the Wallet Address.
-      security: []
   /incoming-payments:
     post:
       summary: Create an Incoming Payment
@@ -107,8 +60,8 @@ paths:
               examples:
                 New Incoming Payment for $25:
                   value:
-                    id: "https://rafiki.money/incoming-payments/08394f02-7b7b-45e2-b645-51d04e7c330c"
-                    walletAddress: "https://rafiki.money/alice/"
+                    id: "https://ilp.rafiki.money/incoming-payments/08394f02-7b7b-45e2-b645-51d04e7c330c"
+                    walletAddress: "https://ilp.rafiki.money/alice/"
                     incomingAmount:
                       value: "2500"
                       assetCode: USD
@@ -126,7 +79,8 @@ paths:
                     methods:
                       - type: ilp
                         ilpAddress: g.ilp.iwuyge987y.98y08y
-                        sharedSecret: 1c7eaXa4rd2fFOBl1iydvCT1tV5TbM3RW1WLCafu_JA'401'
+                        sharedSecret: 1c7eaXa4rd2fFOBl1iydvCT1tV5TbM3RW1WLCafu_JA
+        "401":
           $ref: "#/components/responses/401"
         "403":
           $ref: "#/components/responses/403"
@@ -137,6 +91,8 @@ paths:
               type: object
               additionalProperties: false
               properties:
+                walletAddress:
+                  $ref: ./schemas.yaml#/components/schemas/walletAddress
                 incomingAmount:
                   $ref: ./schemas.yaml#/components/schemas/amount
                   description: The maximum amount that should be paid into the wallet address under this incoming payment.
@@ -148,9 +104,12 @@ paths:
                 metadata:
                   type: object
                   description: Additional metadata associated with the incoming payment. (Optional)
+              required:
+                - walletAddress
             examples:
               Create incoming payment for $25 to pay invoice INV2022-02-0137:
                 value:
+                  walletAddress: "https://openpayments.guide/alice/"
                   incomingAmount:
                     value: "2500"
                     assetCode: USD
@@ -194,6 +153,7 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/incoming-payment"
+                      additionalProperties: false
               examples:
                 forward pagination:
                   value:
@@ -203,8 +163,8 @@ paths:
                       hasPreviousPage: false
                       hasNextPage: true
                     result:
-                      - id: "https://rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         incomingAmount:
                           value: "250"
                           assetCode: USD
@@ -220,8 +180,8 @@ paths:
                         createdAt: "2022-03-12T23:20:50.52Z"
                         updatedAt: "2022-04-01T10:24:36.11Z"
                         completed: true
-                      - id: "https://rafiki.money/incoming-payments/32abc219-3dc3-44ec-a225-790cacfca8fa"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/incoming-payments/32abc219-3dc3-44ec-a225-790cacfca8fa"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         receivedAmount:
                           value: "100"
                           assetCode: USD
@@ -240,8 +200,8 @@ paths:
                       hasPreviousPage: true
                       hasNextPage: false
                     result:
-                      - id: "https://rafiki.money/incoming-payments/32abc219-3dc3-44ec-a225-790cacfca8fa"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/incoming-payments/32abc219-3dc3-44ec-a225-790cacfca8fa"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         receivedAmount:
                           value: "100"
                           assetCode: USD
@@ -252,8 +212,8 @@ paths:
                         updatedAt: "2022-04-01T10:24:36.11Z"
                         metadata:
                           description: "I love your website, Alice! Thanks for the great content"
-                      - id: "https://rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         incomingAmount:
                           value: "250"
                           assetCode: USD
@@ -275,6 +235,7 @@ paths:
           $ref: "#/components/responses/403"
       description: List all incoming payments on the wallet address
       parameters:
+        - $ref: "#/components/parameters/wallet-address"
         - $ref: "#/components/parameters/cursor"
         - $ref: "#/components/parameters/first"
         - $ref: "#/components/parameters/last"
@@ -298,10 +259,10 @@ paths:
               examples:
                 New Fixed Send Outgoing Payment for $25:
                   value:
-                    id: "https://rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-                    walletAddress: "https://rafiki.money/alice/"
+                    id: "https://ilp.rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+                    walletAddress: "https://ilp.rafiki.money/alice/"
                     failed: false
-                    receiver: "https://rafiki.money/bob/incoming-payments/48884225-b393-4872-90de-1b737e2491c2"
+                    receiver: "https://ilp.rafiki.money/bob/incoming-payments/48884225-b393-4872-90de-1b737e2491c2"
                     debitAmount:
                       value: "2600"
                       assetCode: USD
@@ -328,12 +289,15 @@ paths:
             examples:
               Create an outgoing payment based on a quote:
                 value:
-                  quoteId: "https://rafiki.money/quotes/ab03296b-0c8b-4776-b94e-7ee27d868d4d"
+                  walletAddress: "https://ilp.rafiki.money/alice/"
+                  quoteId: "https://ilp.rafiki.money/quotes/ab03296b-0c8b-4776-b94e-7ee27d868d4d"
                   metadata:
                     externalRef: INV2022-02-0137
             schema:
               type: object
               properties:
+                walletAddress:
+                  $ref: ./schemas.yaml#/components/schemas/walletAddress
                 quoteId:
                   type: string
                   format: uri
@@ -344,6 +308,7 @@ paths:
                   description: Additional metadata associated with the outgoing payment. (Optional)
               required:
                 - quoteId
+                - walletAddress
               additionalProperties: false
         description: |-
           A subset of the outgoing payments schema is accepted as input to create a new outgoing payment.
@@ -384,10 +349,10 @@ paths:
                       hasPreviousPage: false
                       hasNextPage: true
                     result:
-                      - id: "https://rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         failed: false
-                        receiver: "https://rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
+                        receiver: "https://ilp.rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
                         receiveAmount:
                           value: "2500"
                           assetCode: USD
@@ -405,10 +370,10 @@ paths:
                         metadata:
                           description: APlusVideo subscription
                           externalRef: "customer: 847458475"
-                      - id: "https://rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         failed: false
-                        receiver: "https://rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
+                        receiver: "https://ilp.rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
                         debitAmount:
                           value: "7126"
                           assetCode: USD
@@ -434,10 +399,10 @@ paths:
                       hasPreviousPage: true
                       hasNextPage: false
                     result:
-                      - id: "https://rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         failed: false
-                        receiver: "https://rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
+                        receiver: "https://ilp.rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
                         debitAmount:
                           value: "7126"
                           assetCode: USD
@@ -455,10 +420,10 @@ paths:
                         metadata:
                           description: Thank you for your purchase at ShoeShop!
                           externalRef: INV2022-8943756
-                      - id: "https://rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-                        walletAddress: "https://rafiki.money/alice/"
+                      - id: "https://ilp.rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+                        walletAddress: "https://ilp.rafiki.money/alice/"
                         failed: false
-                        receiver: "https://rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
+                        receiver: "https://ilp.rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
                         receiveAmount:
                           value: "2500"
                           assetCode: USD
@@ -482,6 +447,7 @@ paths:
           $ref: "#/components/responses/403"
       description: List all outgoing payments on the wallet address
       parameters:
+        - $ref: "#/components/parameters/wallet-address"
         - $ref: "#/components/parameters/cursor"
         - $ref: "#/components/parameters/first"
         - $ref: "#/components/parameters/last"
@@ -505,9 +471,9 @@ paths:
               examples:
                 New Fixed Send Quote for $25:
                   value:
-                    id: "https://rafiki.money/quotes/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-                    walletAddress: "https://rafiki.money/alice/"
-                    receiver: "https://rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
+                    id: "https://ilp.rafiki.money/quotes/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+                    walletAddress: "https://ilp.rafiki.money/alice/"
+                    receiver: "https://ilp.rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
                     debitAmount:
                       value: "2500"
                       assetCode: USD
@@ -531,11 +497,13 @@ paths:
             examples:
               Create quote for an `receiver` that is an Incoming Payment with an `incomingAmount`:
                 value:
-                  receiver: "https://rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
+                  walletAddress: "https://ilp.rafiki.money/alice"
+                  receiver: "https://ilp.rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
                   method: ilp
               Create fixed-send amount quote for $25:
                 value:
-                  receiver: "https://rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
+                  walletAddress: "https://ilp.rafiki.money/alice"
+                  receiver: "https://ilp.rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
                   method: ilp
                   debitAmount:
                     value: "2500"
@@ -543,7 +511,8 @@ paths:
                     assetScale: 2
               Create fixed-receive amount quote for $25:
                 value:
-                  receiver: "https://rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
+                  walletAddress: "https://ilp.rafiki.money/alice"
+                  receiver: "https://ilp.rafiki.money/incoming-payments/37a0d0ee-26dc-4c66-89e0-01fbf93156f7"
                   method: ilp
                   receiveAmount:
                     value: "2500"
@@ -553,16 +522,21 @@ paths:
               oneOf:
                 - description: Create quote for an `receiver` that is an Incoming Payment with an `incomingAmount`
                   properties:
+                    walletAddress:
+                      $ref: ./schemas.yaml#/components/schemas/walletAddress
                     receiver:
                       $ref: ./schemas.yaml#/components/schemas/receiver
                     method:
                       $ref: "#/components/schemas/payment-method"
                   required:
+                    - walletAddress
                     - receiver
                     - method
                   additionalProperties: false
                 - description: Create a quote with a fixed-receive amount
                   properties:
+                    walletAddress:
+                      $ref: ./schemas.yaml#/components/schemas/walletAddress
                     receiver:
                       $ref: ./schemas.yaml#/components/schemas/receiver
                     method:
@@ -571,12 +545,15 @@ paths:
                       description: The fixed amount that would be paid into the receiving wallet address given a successful outgoing payment.
                       $ref: ./schemas.yaml#/components/schemas/amount
                   required:
+                    - walletAddress
                     - receiver
                     - method
                     - receiveAmount
                   additionalProperties: false
                 - description: Create a quote with a fixed-send amount
                   properties:
+                    walletAddress:
+                      $ref: ./schemas.yaml#/components/schemas/walletAddress
                     receiver:
                       $ref: ./schemas.yaml#/components/schemas/receiver
                     method:
@@ -585,6 +562,7 @@ paths:
                       description: The fixed amount that would be sent from the sending wallet address given a successful outgoing payment.
                       $ref: ./schemas.yaml#/components/schemas/amount
                   required:
+                    - walletAddress
                     - receiver
                     - method
                     - debitAmount
@@ -617,8 +595,8 @@ paths:
               examples:
                 Incoming Payment for $25 with $12.34 received so far:
                   value:
-                    id: "https://rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
-                    walletAddress: "https://rafiki.money/alice/"
+                    id: "https://ilp.rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
+                    walletAddress: "https://ilp.rafiki.money/alice/"
                     incomingAmount:
                       value: "2500"
                       assetCode: USD
@@ -667,8 +645,8 @@ paths:
               examples:
                 Completed Incoming Payment:
                   value:
-                    id: "https://rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
-                    walletAddress: "https://rafiki.money/alice/"
+                    id: "https://ilp.rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
+                    walletAddress: "https://ilp.rafiki.money/alice/"
                     incomingAmount:
                       value: "250"
                       assetCode: USD
@@ -715,10 +693,10 @@ paths:
               examples:
                 Outgoing Payment with a fixed send amount of $25:
                   value:
-                    id: "https://rafiki.money/bob/outgoing-payments/3859b39e-4666-4ce5-8745-72f1864c5371"
-                    walletAddress: "https://rafiki.money/bob/"
+                    id: "https://ilp.rafiki.money/bob/outgoing-payments/3859b39e-4666-4ce5-8745-72f1864c5371"
+                    walletAddress: "https://ilp.rafiki.money/bob/"
                     failed: false
-                    receiver: "https://rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
+                    receiver: "https://ilp.rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
                     debitAmount:
                       value: "2500"
                       assetCode: USD
@@ -764,9 +742,9 @@ paths:
               examples:
                 Quote with a fixed send amount of $25:
                   value:
-                    id: "https://rafiki.money/bob/quotes/3859b39e-4666-4ce5-8745-72f1864c5371"
-                    walletAddress: "https://rafiki.money/bob/"
-                    receiver: "https://rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
+                    id: "https://ilp.rafiki.money/bob/quotes/3859b39e-4666-4ce5-8745-72f1864c5371"
+                    walletAddress: "https://ilp.rafiki.money/bob/"
+                    receiver: "https://ilp.rafiki.money/incoming-payments/2f1b0150-db73-49e8-8713-628baa4a17ff"
                     debitAmount:
                       value: "2500"
                       assetCode: USD
@@ -792,69 +770,13 @@ paths:
       - $ref: "#/components/parameters/id"
 components:
   schemas:
-    wallet-address:
-      title: Wallet Address
-      type: object
-      description: A **wallet address** resource is the root of the API and contains the public details of the financial account represented by the Wallet Address that is also the service endpoint URL.
-      additionalProperties: false
-      examples:
-        - id: "https://rafiki.money/alice"
-          publicName: Alice
-          assetCode: USD
-          assetScale: 2
-          authServer: "https://rafiki.money/auth"
-      properties:
-        id:
-          type: string
-          format: uri
-          description: The URL identifying the wallet address.
-          readOnly: true
-        publicName:
-          type: string
-          description: A public name for the account. This should be set by the account holder with their provider to provide a hint to counterparties as to the identity of the account holder.
-          readOnly: true
-        assetCode:
-          $ref: ./schemas.yaml#/components/schemas/assetCode
-        assetScale:
-          $ref: ./schemas.yaml#/components/schemas/assetScale
-        authServer:
-          type: string
-          format: uri
-          description: The URL of the authorization server endpoint for getting grants and access tokens for this wallet address.
-          readOnly: true
-      required:
-        - id
-        - assetCode
-        - assetScale
-        - authServer
-    json-web-key-set:
-      title: JSON Web Key Set document
-      type: object
-      description: "A JSON Web Key Set document according to [rfc7517](https://datatracker.ietf.org/doc/html/rfc7517) listing the keys associated with this wallet address. These keys are used to sign requests made by this wallet address."
-      additionalProperties: false
-      properties:
-        keys:
-          type: array
-          items:
-            $ref: "#/components/schemas/json-web-key"
-          readOnly: true
-      required:
-        - keys
-      examples:
-        - keys:
-            - kid: key-1
-              alg: EdDSA
-              use: sig
-              kty: OKP
-              crv: Ed25519
-              x: 11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo
     incoming-payment:
       title: Incoming Payment
       description: "An **incoming payment** resource represents a payment that will be, is currently being, or has been received by the account."
       type: object
       examples:
-        - id: "https://rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
-          walletAddress: "https://rafiki.money/alice/"
+        - id: "https://ilp.rafiki.money/incoming-payments/016da9d5-c9a4-4c80-a354-86b915a04ff8"
+          walletAddress: "https://ilp.rafiki.money/alice/"
           incomingAmount:
             value: "250"
             assetCode: USD
@@ -870,8 +792,8 @@ components:
           metadata:
             description: "Hi Mo, this is for the cappuccino I bought for you the other day."
             externalRef: Coffee w/ Mo on 10 March 22
-        - id: "https://rafiki.money/incoming-payments/456da9d5-c9a4-4c80-a354-86b915a04ff8"
-          walletAddress: "https://rafiki.money/alice/"
+        - id: "https://ilp.rafiki.money/incoming-payments/456da9d5-c9a4-4c80-a354-86b915a04ff8"
+          walletAddress: "https://ilp.rafiki.money/alice/"
           incomingAmount:
             value: "2500"
             assetCode: USD
@@ -883,7 +805,6 @@ components:
           expiresAt: "2022-04-12T23:20:50.52Z"
           createdAt: "2022-03-12T23:20:50.52Z"
           updatedAt: "2022-03-12T23:20:50.52Z"
-      additionalProperties: false
       properties:
         id:
           type: string
@@ -953,19 +874,26 @@ components:
             value: "0"
             assetCode: USD
             assetScale: 2
+        - authServer: "https://auth.rafiki.money"
       properties:
-        receiveAmount:
+        receivedAmount:
           $ref: ./schemas.yaml#/components/schemas/amount
+        authServer:
+          type: string
+          format: uri
+          description: The URL of the authorization server endpoint for getting grants and access tokens for this wallet address.
+      required:
+        - authServer
       unresolvedProperites: false
     outgoing-payment:
       title: Outgoing Payment
       description: "An **outgoing payment** resource represents a payment that will be, is currently being, or has previously been, sent from the wallet address."
       type: object
       examples:
-        - id: "https://rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-          walletAddress: "https://rafiki.money/alice/"
+        - id: "https://ilp.rafiki.money/outgoing-payments/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+          walletAddress: "https://ilp.rafiki.money/alice/"
           failed: false
-          receiver: "https://rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
+          receiver: "https://ilp.rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
           receiveAmount:
             value: "2500"
             assetCode: USD
@@ -983,10 +911,10 @@ components:
           metadata:
             description: APlusVideo subscription
             externalRef: "customer: 847458475"
-        - id: "https://rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
-          walletAddress: "https://rafiki.money/alice/"
+        - id: "https://ilp.rafiki.money/outgoing-payments/0cffa5a4-58fd-4cc8-8e01-7145c72bf07c"
+          walletAddress: "https://ilp.rafiki.money/alice/"
           failed: false
-          receiver: "https://rafiki.money/shoeshop/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
+          receiver: "https://ilp.rafiki.money/shoeshop/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
           debitAmount:
             value: "7126"
             assetCode: USD
@@ -1058,9 +986,9 @@ components:
       description: A **quote** resource represents the quoted amount details with which an Outgoing Payment may be created.
       type: object
       examples:
-        - id: "https://rafiki.money/quotes/ab03296b-0c8b-4776-b94e-7ee27d868d4d"
-          walletAddress: "https://rafiki.money/alice/"
-          receiver: "https://rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
+        - id: "https://ilp.rafiki.money/quotes/ab03296b-0c8b-4776-b94e-7ee27d868d4d"
+          walletAddress: "https://ilp.rafiki.money/alice/"
+          receiver: "https://ilp.rafiki.money/shoeshop/incoming-payments/2fe92c6f-ef0d-487c-8759-3784eae6bce9"
           receiveAmount:
             value: "2500"
             assetCode: USD
@@ -1076,9 +1004,9 @@ components:
           method: ilp
           createdAt: "2022-03-12T23:20:50.52Z"
           expiresAt: "2022-04-12T23:20:50.52Z"
-        - id: "https://rafiki.money/quotes/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
-          walletAddress: "https://rafiki.money/alice/"
-          receiver: "https://rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
+        - id: "https://ilp.rafiki.money/quotes/8c68d3cc-0a0f-4216-98b4-4fa44a6c88cf"
+          walletAddress: "https://ilp.rafiki.money/alice/"
+          receiver: "https://ilp.rafiki.money/aplusvideo/incoming-payments/45d495ad-b763-4882-88d7-aa14d261686e"
           debitAmount:
             value: "7126"
             assetCode: USD
@@ -1156,51 +1084,6 @@ components:
         - hasNextPage
         - hasPreviousPage
       additionalProperties: false
-    json-web-key:
-      type: object
-      properties:
-        kid:
-          type: string
-        alg:
-          type: string
-          description: "The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`. "
-          enum:
-            - EdDSA
-        use:
-          type: string
-          enum:
-            - sig
-        kty:
-          type: string
-          enum:
-            - OKP
-        crv:
-          type: string
-          enum:
-            - Ed25519
-        x:
-          type: string
-          pattern: "^[a-zA-Z0-9-_]+$"
-          description: The base64 url-encoded public key.
-      required:
-        - kid
-        - alg
-        - kty
-        - crv
-        - x
-      title: Ed25519 Public Key
-      description: A JWK representation of an Ed25519 Public Key
-      examples:
-        - kid: key-1
-          use: sig
-          kty: OKP
-          crv: Ed25519
-          x: 11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo
-        - kid: "2022-09-02"
-          use: sig
-          kty: OKP
-          crv: Ed25519
-          x: oy0L_vTygNE4IogRyn_F5GmHXdqYVjIXkWs2jky7zsI
     payment-method:
       type: string
       enum:
@@ -1262,7 +1145,6 @@ components:
         type: integer
         minimum: 1
         maximum: 100
-        default: 10
       name: first
       in: query
       description: The number of items to return after the cursor.
@@ -1271,7 +1153,6 @@ components:
         type: integer
         minimum: 1
         maximum: 100
-        default: 10
       name: last
       in: query
       description: The number of items to return before the cursor.
@@ -1281,6 +1162,13 @@ components:
       schema:
         type: string
       description: Sub-resource identifier
+      required: true
+    wallet-address:
+      name: wallet-address
+      in: query
+      schema:
+        type: string
+      description: "URL of a wallet address hosted by a Rafiki instance."
       required: true
     signature:
       name: Signature

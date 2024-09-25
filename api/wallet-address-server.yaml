@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Wallet Address API
-  version: "1.4"
+  version: '1.4'
   license:
     name: Apache 2.0
     identifier: Apache-2.0
@@ -10,9 +10,9 @@ info:
   contact:
     email: tech@interledger.org
 servers:
-  - url: "https://rafiki.money/alice"
+  - url: 'https://rafiki.money/alice'
     description: "Server for Alice's wallet address"
-  - url: "https://rafiki.money/bob"
+  - url: 'https://rafiki.money/bob'
     description: "Server for Bob's wallet address"
 tags:
   - name: wallet-address
@@ -24,22 +24,22 @@ paths:
       tags:
         - wallet-address
       responses:
-        "200":
+        '200':
           description: Wallet Address Found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/wallet-address"
+                $ref: '#/components/schemas/wallet-address'
               examples:
                 Get wallet address for $rafiki.money/alice:
                   value:
-                    id: "https://rafiki.money/alice"
+                    id: 'https://rafiki.money/alice'
                     publicName: Alice
                     assetCode: USD
                     assetScale: 2
-                    authServer: "https://rafiki.money/auth"
-                    resourceServer: "https://rafiki.money/op"
-        "404":
+                    authServer: 'https://rafiki.money/auth'
+                    resourceServer: 'https://rafiki.money/op'
+        '404':
           description: Wallet Address Not Found
       operationId: get-wallet-address
       description: |-
@@ -56,14 +56,14 @@ paths:
       tags:
         - wallet-address
       responses:
-        "200":
+        '200':
           description: JWKS Document Found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/json-web-key-set"
+                $ref: '#/components/schemas/json-web-key-set'
               examples: {}
-        "404":
+        '404':
           description: JWKS Document Not Found
       operationId: get-wallet-address-keys
       description: Retrieve the public keys of the Wallet Address.
@@ -74,13 +74,13 @@ paths:
       tags:
         - wallet-address
       responses:
-        "200":
+        '200':
           description: DID Document Found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/did-document"
-        "500":
+                $ref: '#/components/schemas/did-document'
+        '500':
           description: DID Document not yet implemented
       operationId: get-wallet-address-did-document
       description: Retrieve the DID Document of the Wallet Address.
@@ -93,12 +93,12 @@ components:
       description: A **wallet address** resource is the root of the API and contains the public details of the financial account represented by the Wallet Address that is also the service endpoint URL.
       additionalProperties: true
       examples:
-        - id: "https://rafiki.money/alice"
+        - id: 'https://rafiki.money/alice'
           publicName: Alice
           assetCode: USD
           assetScale: 2
-          authServer: "https://rafiki.money/auth"
-          resourceServer: "https://rafiki.money/op"
+          authServer: 'https://rafiki.money/auth'
+          resourceServer: 'https://rafiki.money/op'
       properties:
         id:
           type: string
@@ -132,13 +132,13 @@ components:
     json-web-key-set:
       title: JSON Web Key Set document
       type: object
-      description: "A JSON Web Key Set document according to [rfc7517](https://datatracker.ietf.org/doc/html/rfc7517) listing the keys associated with this wallet address. These keys are used to sign requests made by this wallet address."
+      description: 'A JSON Web Key Set document according to [rfc7517](https://datatracker.ietf.org/doc/html/rfc7517) listing the keys associated with this wallet address. These keys are used to sign requests made by this wallet address.'
       additionalProperties: false
       properties:
         keys:
           type: array
           items:
-            $ref: "#/components/schemas/json-web-key"
+            $ref: '#/components/schemas/json-web-key'
           readOnly: true
       required:
         - keys
@@ -157,7 +157,7 @@ components:
           type: string
         alg:
           type: string
-          description: "The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`. "
+          description: 'The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`. '
           enum:
             - EdDSA
         use:
@@ -174,7 +174,7 @@ components:
             - Ed25519
         x:
           type: string
-          pattern: "^[a-zA-Z0-9-_]+$"
+          pattern: '^[a-zA-Z0-9-_]+$'
           description: The base64 url-encoded public key.
       required:
         - kid
@@ -190,7 +190,7 @@ components:
           kty: OKP
           crv: Ed25519
           x: 11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo
-        - kid: "2022-09-02"
+        - kid: '2022-09-02'
           use: sig
           kty: OKP
           crv: Ed25519

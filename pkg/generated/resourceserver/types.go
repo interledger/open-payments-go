@@ -20,26 +20,6 @@ const (
 	IlpPaymentMethodTypeIlp IlpPaymentMethodType = "ilp"
 )
 
-// Defines values for JsonWebKeyAlg.
-const (
-	EdDSA JsonWebKeyAlg = "EdDSA"
-)
-
-// Defines values for JsonWebKeyCrv.
-const (
-	Ed25519 JsonWebKeyCrv = "Ed25519"
-)
-
-// Defines values for JsonWebKeyKty.
-const (
-	OKP JsonWebKeyKty = "OKP"
-)
-
-// Defines values for JsonWebKeyUse.
-const (
-	Sig JsonWebKeyUse = "sig"
-)
-
 // Defines values for PaymentMethod.
 const (
 	PaymentMethodIlp PaymentMethod = "ilp"
@@ -118,36 +98,6 @@ type IncomingPaymentWithMethods_Methods_Item struct {
 	union json.RawMessage
 }
 
-// JsonWebKey A JWK representation of an Ed25519 Public Key
-type JsonWebKey struct {
-	// Alg The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`.
-	Alg JsonWebKeyAlg  `json:"alg"`
-	Crv JsonWebKeyCrv  `json:"crv"`
-	Kid string         `json:"kid"`
-	Kty JsonWebKeyKty  `json:"kty"`
-	Use *JsonWebKeyUse `json:"use,omitempty"`
-
-	// X The base64 url-encoded public key.
-	X string `json:"x"`
-}
-
-// JsonWebKeyAlg The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`.
-type JsonWebKeyAlg string
-
-// JsonWebKeyCrv defines model for JsonWebKey.Crv.
-type JsonWebKeyCrv string
-
-// JsonWebKeyKty defines model for JsonWebKey.Kty.
-type JsonWebKeyKty string
-
-// JsonWebKeyUse defines model for JsonWebKey.Use.
-type JsonWebKeyUse string
-
-// JsonWebKeySet A JSON Web Key Set document according to [rfc7517](https://datatracker.ietf.org/doc/html/rfc7517) listing the keys associated with this wallet address. These keys are used to sign requests made by this wallet address.
-type JsonWebKeySet struct {
-	Keys *[]JsonWebKey `json:"keys,omitempty"`
-}
-
 // OutgoingPayment An **outgoing payment** resource represents a payment that will be, is currently being, or has previously been, sent from the wallet address.
 type OutgoingPayment struct {
 	// CreatedAt The date and time when the outgoing payment was created.
@@ -198,7 +148,9 @@ type PaymentMethod string
 
 // PublicIncomingPayment An **incoming payment** resource with public details.
 type PublicIncomingPayment struct {
-	ReceiveAmount *externalRef0.Amount `json:"receiveAmount,omitempty"`
+	// AuthServer The URL of the authorization server endpoint for getting grants and access tokens for this wallet address.
+	AuthServer     string               `json:"authServer"`
+	ReceivedAmount *externalRef0.Amount `json:"receivedAmount,omitempty"`
 }
 
 // Quote A **quote** resource represents the quoted amount details with which an Outgoing Payment may be created.
@@ -220,24 +172,6 @@ type Quote struct {
 
 	// WalletAddress The URL of the wallet address from which this quote's payment would be sent.
 	WalletAddress *string `json:"walletAddress,omitempty"`
-}
-
-// WalletAddress A **wallet address** resource is the root of the API and contains the public details of the financial account represented by the Wallet Address that is also the service endpoint URL.
-type WalletAddress struct {
-	// AssetCode The assetCode is a code that indicates the underlying asset. This SHOULD be an ISO4217 currency code.
-	AssetCode externalRef0.AssetCode `json:"assetCode"`
-
-	// AssetScale The scale of amounts denoted in the corresponding asset code.
-	AssetScale externalRef0.AssetScale `json:"assetScale"`
-
-	// AuthServer The URL of the authorization server endpoint for getting grants and access tokens for this wallet address.
-	AuthServer *string `json:"authServer,omitempty"`
-
-	// Id The URL identifying the wallet address.
-	Id *string `json:"id,omitempty"`
-
-	// PublicName A public name for the account. This should be set by the account holder with their provider to provide a hint to counterparties as to the identity of the account holder.
-	PublicName *string `json:"publicName,omitempty"`
 }
 
 // Cursor defines model for cursor.
@@ -264,8 +198,14 @@ type Signature = string
 // SignatureInput defines model for signature-input.
 type SignatureInput = string
 
+// WalletAddress defines model for wallet-address.
+type WalletAddress = string
+
 // ListIncomingPaymentsParams defines parameters for ListIncomingPayments.
 type ListIncomingPaymentsParams struct {
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress WalletAddress `form:"wallet-address" json:"wallet-address"`
+
 	// Cursor The cursor key to list from.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
@@ -290,6 +230,9 @@ type CreateIncomingPaymentJSONBody struct {
 
 	// Metadata Additional metadata associated with the incoming payment. (Optional)
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress externalRef0.WalletAddress `json:"walletAddress"`
 }
 
 // CreateIncomingPaymentParams defines parameters for CreateIncomingPayment.
@@ -321,6 +264,9 @@ type CompleteIncomingPaymentParams struct {
 
 // ListOutgoingPaymentsParams defines parameters for ListOutgoingPayments.
 type ListOutgoingPaymentsParams struct {
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress WalletAddress `form:"wallet-address" json:"wallet-address"`
+
 	// Cursor The cursor key to list from.
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
@@ -344,6 +290,9 @@ type CreateOutgoingPaymentJSONBody struct {
 
 	// QuoteId The URL of the quote defining this payment's amounts.
 	QuoteId string `json:"quoteId"`
+
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress externalRef0.WalletAddress `json:"walletAddress"`
 }
 
 // CreateOutgoingPaymentParams defines parameters for CreateOutgoingPayment.
@@ -384,6 +333,9 @@ type CreateQuoteJSONBody0 struct {
 
 	// Receiver The URL of the incoming payment or ILP STREAM connection that is being paid.
 	Receiver externalRef0.Receiver `json:"receiver"`
+
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress externalRef0.WalletAddress `json:"walletAddress"`
 }
 
 // CreateQuoteJSONBody1 defines parameters for CreateQuote.
@@ -393,6 +345,9 @@ type CreateQuoteJSONBody1 struct {
 
 	// Receiver The URL of the incoming payment or ILP STREAM connection that is being paid.
 	Receiver externalRef0.Receiver `json:"receiver"`
+
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress externalRef0.WalletAddress `json:"walletAddress"`
 }
 
 // CreateQuoteJSONBody2 defines parameters for CreateQuote.
@@ -402,6 +357,9 @@ type CreateQuoteJSONBody2 struct {
 
 	// Receiver The URL of the incoming payment or ILP STREAM connection that is being paid.
 	Receiver externalRef0.Receiver `json:"receiver"`
+
+	// WalletAddress URL of a wallet address hosted by a Rafiki instance.
+	WalletAddress externalRef0.WalletAddress `json:"walletAddress"`
 }
 
 // GetQuoteParams defines parameters for GetQuote.

@@ -17,7 +17,8 @@ var (
 func main() {
 	getWalletAddress()
 	getWalletAddressKeys()
-	getWalletAddressDIDDocument() // Should fail, not implement in rafiki
+	getWalletAddressDIDDocument() // Should fail, not implemented in rafiki
+	getPublicIncomingPayment("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131") // Make payment in rafiki and use id
 	grantRequest() // Fails: depends on signing headers to authorize request
 }
 
@@ -55,6 +56,22 @@ func getWalletAddressDIDDocument(){
 	}
 
 	printJSON(walletAddressDIDDocument)
+}
+
+func getPublicIncomingPayment(incomingPaymentId string){
+	baseUrl := "http://localhost:4000/incoming-payments/"
+	url := baseUrl + incomingPaymentId
+
+	fmt.Printf("\nclient.IncomingPayment.GetPublic(\"%s\"\n)", url)
+
+	incomingPayment, err := client.IncomingPayment.GetPublic(url)
+
+	if err != nil {
+		fmt.Printf("Error fetching incoming payment: %v\n", err)
+		return
+	}
+
+	printJSON(incomingPayment)
 }
 
 func grantRequest(){

@@ -9,6 +9,7 @@ import (
 type Client struct {
 		httpClient *http.Client
     WalletAddress *WalletAddressRoutes
+		IncomingPayment *IncomingPaymentRoutes
 		Grant *GrantRoutes
 }
 
@@ -17,6 +18,7 @@ func NewClient() *Client {
     return &Client{
 				httpClient: &httpClient,
         WalletAddress: &WalletAddressRoutes{httpClient: &httpClient},
+				IncomingPayment: &IncomingPaymentRoutes{httpClient: &httpClient},
 				Grant: &GrantRoutes{httpClient: &httpClient},
     }
 }
