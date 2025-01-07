@@ -4,27 +4,31 @@ import (
 	"encoding/json"
 	"fmt"
 
-	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
 	op "github.com/interledger/open-payments-go-sdk/pkg/openpayments"
 )
 
 var (
 	clientWalletAddress = "http://localhost:4000/accounts/pfry" // clientWalletAddress
 	receiverOpenPaymentsAuthHost = "http://localhost:4006"
-	client = op.NewClient()
+	unauthedClient = op.NewUnauthenticatedClient()
+	authedClient = op.NewAuthenticatedClient("", "", "")
 )
 
 func main() {
+	// Unauthenticated
 	getWalletAddress()
 	getWalletAddressKeys()
 	getWalletAddressDIDDocument() // Should fail, not implemented in rafiki
-	getPublicIncomingPayment("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131") // Make payment in rafiki and use id
-	grantRequest() // Fails: depends on signing headers to authorize request
+	getPublicIncomingPaymentUnauthed("07a4efe0-ad33-4124-95dc-e80fd29dd86f") // Make payment in rafiki and use id
+	
+	// Authenticated
+	getPublicIncomingPaymentAuthed("07a4efe0-ad33-4124-95dc-e80fd29dd86f") // Make payment in rafiki and use id
+	// grantRequest() // Fails: depends on signing headers to authorize request
 }
 
 func getWalletAddress(){
 	fmt.Printf("\nclient.WalletAddress.Get(\"%s\")\n", clientWalletAddress)
-	walletAddress, err := client.WalletAddress.Get(clientWalletAddress)
+	walletAddress, err := unauthedClient.WalletAddress.Get(clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address: %v\n", err)
@@ -36,7 +40,7 @@ func getWalletAddress(){
 
 func getWalletAddressKeys(){
 	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", clientWalletAddress)
-	walletAddressKeys, err := client.WalletAddress.GetKeys(clientWalletAddress)
+	walletAddressKeys, err := unauthedClient.WalletAddress.GetKeys(clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address keys: %v\n", err)
@@ -48,7 +52,7 @@ func getWalletAddressKeys(){
 
 func getWalletAddressDIDDocument(){
 	fmt.Printf("\nclient.WalletAddress.GetDIDDocument(\"%s\"\n)", clientWalletAddress)
-	walletAddressDIDDocument, err := client.WalletAddress.GetDIDDocument(clientWalletAddress)
+	walletAddressDIDDocument, err := unauthedClient.WalletAddress.GetDIDDocument(clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address DID document: %v\n", err)
@@ -58,14 +62,13 @@ func getWalletAddressDIDDocument(){
 	printJSON(walletAddressDIDDocument)
 }
 
-func getPublicIncomingPayment(incomingPaymentId string){
+func getPublicIncomingPaymentUnauthed(incomingPaymentId string) {
 	baseUrl := "http://localhost:4000/incoming-payments/"
 	url := baseUrl + incomingPaymentId
 
-	fmt.Printf("\nclient.IncomingPayment.GetPublic(\"%s\"\n)", url)
+	fmt.Printf("\nclient.IncomingPayment.GetPublic(\"%s\")\n", url)
 
-	incomingPayment, err := client.IncomingPayment.GetPublic(url)
-
+	incomingPayment, err := unauthedClient.IncomingPayment.GetPublic(url)
 	if err != nil {
 		fmt.Printf("Error fetching incoming payment: %v\n", err)
 		return
@@ -74,52 +77,67 @@ func getPublicIncomingPayment(incomingPaymentId string){
 	printJSON(incomingPayment)
 }
 
-func grantRequest(){
-	// access token
-	quoteAccess := as.AccessQuote{
-		Type:    as.Quote,
-		Actions: []as.AccessQuoteActions{as.Create, as.Read},
-	}
-	accessItem := as.AccessItem{}
-	err := accessItem.FromAccessQuote(quoteAccess)
+func getPublicIncomingPaymentAuthed(incomingPaymentId string) {
+	baseUrl := "http://localhost:4000/incoming-payments/"
+	url := baseUrl + incomingPaymentId
+
+	fmt.Printf("\nclient.IncomingPayment.GetPublic(\"%s\")\n", url)
+
+	incomingPayment, err := authedClient.IncomingPayment.GetPublic(url)
 	if err != nil {
-		fmt.Println("Error creating AccessItem:", err)
+		fmt.Printf("Error fetching incoming payment: %v\n", err)
 		return
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"` // TODO: remove this json bit?
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 
-	// interact
-	// interact := as.InteractRequest{
-	// 	Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
-	// 	Finish: &struct{
-	// 		Method as.InteractRequestFinishMethod "json:\"method\"";
-	// 		Nonce string "json:\"nonce\"";
-	// 		Uri string "json:\"uri\"";
-	// 	}{
-	// 		Method: as.InteractRequestFinishMethodRedirect,
-	// 		Nonce: "456",
-	// 		Uri: "http://localhost:3030/mock-idp/fake-client",
-	// 	},
-	// }
-
-	requestBody := as.PostRequestJSONBody{
-		AccessToken: accessToken,
-		Client:      clientWalletAddress,
-		// Interact: &interact,
-	}
-	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", clientWalletAddress, requestBody)
-	grantRequest, err := client.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
-	if err != nil {
-		fmt.Printf("Error with grant request: %v\n", err)
-		return
-	}
-	printJSON(grantRequest)
-
+	printJSON(incomingPayment)
 }
+
+// func grantRequest(){
+// 	// access token
+// 	quoteAccess := as.AccessQuote{
+// 		Type:    as.Quote,
+// 		Actions: []as.AccessQuoteActions{as.Create, as.Read},
+// 	}
+// 	accessItem := as.AccessItem{}
+// 	err := accessItem.FromAccessQuote(quoteAccess)
+// 	if err != nil {
+// 		fmt.Println("Error creating AccessItem:", err)
+// 		return
+// 	}
+// 	accessToken := struct {
+// 		Access as.Access `json:"access"` // TODO: remove this json bit?
+// 	}{
+// 		Access: []as.AccessItem{accessItem},
+// 	}
+
+// 	// interact
+// 	// interact := as.InteractRequest{
+// 	// 	Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+// 	// 	Finish: &struct{
+// 	// 		Method as.InteractRequestFinishMethod "json:\"method\"";
+// 	// 		Nonce string "json:\"nonce\"";
+// 	// 		Uri string "json:\"uri\"";
+// 	// 	}{
+// 	// 		Method: as.InteractRequestFinishMethodRedirect,
+// 	// 		Nonce: "456",
+// 	// 		Uri: "http://localhost:3030/mock-idp/fake-client",
+// 	// 	},
+// 	// }
+
+// 	requestBody := as.PostRequestJSONBody{
+// 		AccessToken: accessToken,
+// 		Client:      clientWalletAddress,
+// 		// Interact: &interact,
+// 	}
+// 	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", clientWalletAddress, requestBody)
+// 	grantRequest, err := client.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
+// 	if err != nil {
+// 		fmt.Printf("Error with grant request: %v\n", err)
+// 		return
+// 	}
+// 	printJSON(grantRequest)
+
+// }
 
 func printJSON(v interface{}) {
 	jsonData, err := json.MarshalIndent(v, "", "  ")

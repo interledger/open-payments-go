@@ -8,12 +8,28 @@ import (
 	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
 )
 
-type IncomingPaymentRoutes struct{
+type UnauthenticatedIncomingPaymentRoutes struct{
 	httpClient *http.Client
 }
 
-func (ip *IncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
-		resp, err := ip.httpClient.Get(url)
+func (ip *UnauthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ip.httpClient, url)
+}
+
+type AuthenticatedIncomingPaymentRoutes struct{
+	httpClient *http.Client
+}
+
+func (ip *AuthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ip.httpClient, url)
+}
+
+// func (ip *UnauthenticatedIncomingPaymentRoutes) Get(url string) (rs.IncomingPayment, error) {
+// 	// TODO: implement this
+// }
+
+func getPublic(httpClient *http.Client, url string) (rs.PublicIncomingPayment, error) {
+resp, err := httpClient.Get(url)
 		if err != nil {
 				return rs.PublicIncomingPayment{}, err
 		}
