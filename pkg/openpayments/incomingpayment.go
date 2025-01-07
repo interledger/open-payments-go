@@ -1,10 +1,10 @@
 package openpayments
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/interledger/open-payments-go-sdk/internal/lib"
 	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
 )
 
@@ -24,26 +24,19 @@ func (ip *AuthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIn
 	return getPublic(ip.httpClient, url)
 }
 
-// func (ip *UnauthenticatedIncomingPaymentRoutes) Get(url string) (rs.IncomingPayment, error) {
-// 	// TODO: implement this
-// }
+func (ip *AuthenticatedIncomingPaymentRoutes) Get(url string) (rs.IncomingPayment, error) {
+	incomingPayment, err := lib.FetchAndDecode[rs.IncomingPayment](ip.httpClient, url)
+	if err != nil {
+		return rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %w", err)
+	}
+	return incomingPayment, nil
+}
+
 
 func getPublic(httpClient *http.Client, url string) (rs.PublicIncomingPayment, error) {
-resp, err := httpClient.Get(url)
-		if err != nil {
-				return rs.PublicIncomingPayment{}, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-				return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
-		}
-
-		var incomingPaymentResponse rs.PublicIncomingPayment
-		err = json.NewDecoder(resp.Body).Decode(&incomingPaymentResponse)
-		if err != nil {
-				return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decoding response body: %s", err)
-		}
-
-		return incomingPaymentResponse, nil
+	publicPayment, err := lib.FetchAndDecode[rs.PublicIncomingPayment](httpClient, url)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get public incoming payment: %w", err)
+	}
+	return publicPayment, nil
 }
