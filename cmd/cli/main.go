@@ -24,6 +24,7 @@ func main() {
 	// Authenticated
 	getPublicIncomingPaymentAuthed("f68ff34f-b052-46a7-b270-71c9dc36e028") // Make payment in rafiki and use id
 	getIncomingPayment("f68ff34f-b052-46a7-b270-71c9dc36e028") // circumvent signing by hardcoding check in rafiki incoming payment routes
+	getIncomingPaymentList()
 	// grantRequest() // Fails: depends on signing headers to authorize request
 }
 
@@ -99,7 +100,28 @@ func getIncomingPayment(incomingPaymentId string) {
 
 	fmt.Printf("\nclient.IncomingPayment.Get(\"%s\")\n", url)
 
-	incomingPayment, err := authedClient.IncomingPayment.Get(url)
+	incomingPayment, err := authedClient.IncomingPayment.Get(url, "")
+	if err != nil {
+		fmt.Printf("Error fetching incoming payment: %v\n", err)
+		return
+	}
+
+	printJSON(incomingPayment)
+}
+
+func getIncomingPaymentList() {
+	url := "http://localhost:4000/incoming-payments/"
+	// url := baseUrl + incomingPaymentId
+
+	fmt.Printf("\nclient.IncomingPayment.List(\"%s\")\n", url)
+
+	incomingPayment, err := authedClient.IncomingPayment.List(url, "", op.ListArgs{
+		WalletAddress: "some-wallet-address",
+		Pagination: op.Pagination{
+			First:  "10",
+			Cursor: "abc123",
+		},
+	})
 	if err != nil {
 		fmt.Printf("Error fetching incoming payment: %v\n", err)
 		return

@@ -24,12 +24,44 @@ func (ip *AuthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIn
 	return getPublic(ip.httpClient, url)
 }
 
-func (ip *AuthenticatedIncomingPaymentRoutes) Get(url string) (rs.IncomingPayment, error) {
+func (ip *AuthenticatedIncomingPaymentRoutes) Get(url string, accessToken string) (rs.IncomingPayment, error) {
 	incomingPayment, err := lib.FetchAndDecode[rs.IncomingPayment](ip.httpClient, url)
 	if err != nil {
 		return rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %w", err)
 	}
 	return incomingPayment, nil
+}
+
+type Pagination struct {
+	First string
+	Last string
+	Cursor string
+}
+
+type ListArgs struct {
+	WalletAddress string
+	Pagination Pagination
+}
+
+// TODO: wont work because rafiki will fail on open api validation because there is no sig header
+func (ip *AuthenticatedIncomingPaymentRoutes) List(url string, accessToken string, args ListArgs) ([]rs.IncomingPayment, error) {
+	queryParams := map[string]string{
+		"walletAddress": args.WalletAddress,
+		"first":         args.Pagination.First,
+		"last":          args.Pagination.Last,
+		"cursor":        args.Pagination.Cursor,
+	}
+	fullURL, err := lib.BuildQueryParams(url, queryParams)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query params: %w", err)
+	}
+
+	incomingPayments, err := lib.FetchAndDecode[[]rs.IncomingPayment](ip.httpClient, fullURL)
+	if err != nil {
+		return []rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %w", err)
+	}
+	return incomingPayments, nil
 }
 
 

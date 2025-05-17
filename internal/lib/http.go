@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 type HeaderTransport struct {
@@ -36,4 +37,21 @@ func FetchAndDecode[T any](httpClient *http.Client, url string) (T, error) {
 	}
 
 	return result, nil
+}
+
+func BuildQueryParams(baseURL string, params map[string]string) (string, error) {
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	query := parsedURL.Query()
+	for key, value := range params {
+		if value != "" {
+			query.Set(key, value)
+		}
+	}
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String(), nil
 }
