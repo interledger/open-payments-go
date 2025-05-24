@@ -27,7 +27,9 @@ func main() {
 	getWalletAddressKeys()
 	getWalletAddressDIDDocument() // Should fail, not implemented in rafiki
 	getPublicIncomingPayment("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131") // Make payment in rafiki and use id
-	grantRequest() // Fails: depends on signing headers to authorize request
+	grantRequest()
+	grantRequest2()
+	grantRequest_httpsign()
 }
 
 func getWalletAddress(){
@@ -42,6 +44,8 @@ func getWalletAddress(){
 	printJSON(walletAddress)
 }
 
+// TODO: fix this? 
+// seeing "keys": [] but bruno shows keys
 func getWalletAddressKeys(){
 	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", clientWalletAddress)
 	walletAddressKeys, err := client.WalletAddress.GetKeys(clientWalletAddress)
@@ -135,13 +139,13 @@ func getPublicIncomingPayment(incomingPaymentId string){
 // grant request incoming payment
 func grantRequest() {
 	incomingAccess := as.AccessIncoming{
+		Type: as.IncomingPayment,
 		Actions: []as.AccessIncomingActions{
 			as.AccessIncomingActionsCreate,
 			as.AccessIncomingActionsRead,
 			as.AccessIncomingActionsList,
 			as.AccessIncomingActionsComplete,
 		},
-			Type: as.IncomingPayment,
 	}
 	accessItem := as.AccessItem{}
 	err := accessItem.FromAccessIncoming(incomingAccess)
@@ -166,22 +170,117 @@ func grantRequest() {
 	// errors: key is not valid base64?
 	// grantRequest, err := authedClient.Grant.Request("https://auth.interledger-test.dev/", requestBody)
 	
-	// TODO: get this working
-	// Been unable to complete against local or testnet.
-	// Locally, I see error right at the end of the rafiki middleware when trying to validate signature with the body. Rafiki
-	// is able to find client and all other initial checks pass.
-	// Client gets response: {"error":{"code":"invalid_client","description":"invalid signature"}} with 401 Unauthorized
-  // Comparing requests between client and bruno (using same configuration) makes it look like client request is well formed
-	// Two implementations of the request signing in this client - one completely manual and one using  httpsign library. 
-	// Both have same issue. As a test, I added signature verification within the client and that is failing as well.
-	grantRequest, err := authedClient.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
-	
+	grant, err := authedClient.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
+
 	if err != nil {
 			fmt.Printf("Error with grant request: %v\n", err)
 			return
 	}
+
+	fmt.Println("Completed grant request with DoSigned")
+
+	printJSON(grant)
+}
+
+// testing httpsign implementation. trying to see if i can get this to work 
+func grantRequest_httpsign() {
+	var authedClient_httpsign = op.NewAuthenticatedClient_httpsign(
+		"http://localhost:4000/accounts/pfry", 
+		// existing key from local environement, taken from bruno
+		"LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
+		"keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
+		// for testnet (get key from interledger-test.dev)
+	)
+
+	incomingAccess := as.AccessIncoming{
+		Type: as.IncomingPayment,
+		Actions: []as.AccessIncomingActions{
+			as.AccessIncomingActionsCreate,
+			as.AccessIncomingActionsRead,
+			as.AccessIncomingActionsList,
+			as.AccessIncomingActionsComplete,
+		},
+	}
+	accessItem := as.AccessItem{}
+	err := accessItem.FromAccessIncoming(incomingAccess)
+	if err != nil {
+			fmt.Println("Error creating AccessItem:", err)
+			return
+	}
+	accessToken := struct {
+			Access as.Access `json:"access"`
+	}{
+			Access: []as.AccessItem{accessItem},
+	}
+	requestBody := as.PostRequestJSONBody{
+			AccessToken: accessToken,
+			// for local
+			Client:      "https://happy-life-bank-backend/accounts/pfry",
+			// for testnet:
+			// Client:      		"https://interledger-test.dev/blair", // or similar
+	}
 	
-	printJSON(grantRequest)
+	grant, err := authedClient_httpsign.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
+
+	if err != nil {
+			fmt.Printf("Error with grant request: %v\n", err)
+			return
+	}
+
+	fmt.Println("Completed grant request with httpsig library")
+
+	printJSON(grant)
+}
+
+// old working verison of manual singing (uses custom signing header transport)
+// - moved on from this since auth's http client doesnt necessarily want to sign everything (wallet address resources, etc.)
+func grantRequest2() {
+	var authedClient2 = op.NewAuthenticatedClient2(
+		"http://localhost:4000/accounts/pfry", 
+		// existing key from local environement, taken from bruno
+		"LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
+		"keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
+		// for testnet (get key from interledger-test.dev)
+	)
+
+	incomingAccess := as.AccessIncoming{
+		Type: as.IncomingPayment,
+		Actions: []as.AccessIncomingActions{
+			as.AccessIncomingActionsCreate,
+			as.AccessIncomingActionsRead,
+			as.AccessIncomingActionsList,
+			as.AccessIncomingActionsComplete,
+		},
+	}
+	accessItem := as.AccessItem{}
+	err := accessItem.FromAccessIncoming(incomingAccess)
+	if err != nil {
+			fmt.Println("Error creating AccessItem:", err)
+			return
+	}
+	accessToken := struct {
+			Access as.Access `json:"access"`
+	}{
+			Access: []as.AccessItem{accessItem},
+	}
+	requestBody := as.PostRequestJSONBody{
+			AccessToken: accessToken,
+			// for local
+			Client:      "https://happy-life-bank-backend/accounts/pfry",
+			// for testnet:
+			// Client:      		"https://interledger-test.dev/blair", // or similar
+	}
+	
+	grant, err := authedClient2.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
+
+	if err != nil {
+			fmt.Printf("Error with grant request: %v\n", err)
+			return
+	}
+
+	fmt.Println("Completed grant request with httpsig library")
+
+	printJSON(grant)
 }
 
 func printJSON(v interface{}) {

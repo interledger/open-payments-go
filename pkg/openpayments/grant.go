@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
@@ -34,8 +33,9 @@ func (g *GrantRoutes) Request(url string, requestBody as.PostRequestJSONBody) (G
     defer resp.Body.Close()
 
 		// TODO: remove this debug log after authorization implemented and this is confirmed working 
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Println("Response Body:", string(body))
+		// NOTE: this consumes the response body.
+		// body, _ := io.ReadAll(resp.Body)
+		// fmt.Println("Response Body:", string(body))
 
     if resp.StatusCode != http.StatusOK {
         return Grant{}, fmt.Errorf("failed to perform grant request: %s", resp.Status)

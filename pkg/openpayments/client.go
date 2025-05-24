@@ -3,7 +3,6 @@ package openpayments
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/sha512"
 	"crypto/x509"
 	"strings"
@@ -18,11 +17,13 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/dunglas/httpsfv"
 	"github.com/interledger/open-payments-go-sdk/internal/lib"
+	"github.com/interledger/open-payments-go-sdk/pkg/httpsignatureutils"
 	"github.com/yaronf/httpsign"
 )
 
-type Client struct {
+type Client2 struct {
 	httpClient *http.Client
 	WalletAddress *WalletAddressRoutes
 	IncomingPayment *IncomingPaymentRoutes
@@ -30,9 +31,9 @@ type Client struct {
 	Grant *GrantRoutes
 }
 
-func NewClient() *Client {
+func NewClient2() *Client2 {
 	httpClient := http.Client{Transport: &lib.HeaderTransport{Base: http.DefaultTransport}}
-	return &Client{
+	return &Client2{
 		httpClient: &httpClient,
 		WalletAddress: &WalletAddressRoutes{httpClient: &httpClient},
 		IncomingPayment: &IncomingPaymentRoutes{httpClient: &httpClient},
@@ -61,16 +62,106 @@ func NewClient() *Client {
 // 	return text, nil
 // }
 
-type AuthenticatedClient struct {
+type AuthenticatedClient2 struct {
 	httpClient      *http.Client
-	walletAddressUrl string
+	walletAddressUrl string  /** The wallet address which the client will identify itself by */
 	privateKey      ed25519.PrivateKey
 	keyId           string
 	Grant           *GrantRoutes
 }
 
+func createContentDigest2(body []byte) (string, error) {
+	hash := sha512.Sum512(body)
+	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
+
+	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
+	fmt.Printf("Content-Digest: %s\n", digest)
+	return digest, nil
+}
+
+func NewAuthenticatedClient2(walletAddressUrl string, privateKey string, keyId string) *AuthenticatedClient2 {
+	edKey, err := loadBase64Key(privateKey)
+	if err != nil {
+		fmt.Println("Error loading key:", err)
+		return nil
+	}
+
+	httpClient := http.Client{
+		Transport: &lib.HeaderTransport{
+			Base: http.DefaultTransport,
+			// TODO: wrap more of this logic in a createHeaders or similar in httpsignatureutils? like `createHeaders` in the
+			// TS version of http-signature-utils. then this woul dlooke like signRequest in the TS open payments client
+			// - in requests.ts: https://github.com/interledger/open-payments/blob/main/packages/open-payments/src/client/requests.ts
+			SigningFunc: func(req *http.Request) error {
+				// Set headers to match the working request
+				// req.Header.Set("Accept", "application/json, text/plain, */*")
+				// req.Header.Set("Accept-Encoding", "gzip, compress, deflate, br")
+
+				// TODO: REMOVE. stubbing this in for debugging purposes
+				// jsonBody := "{\"access_token\":{\"access\":[{\"type\":\"incoming-payment\",\"actions\":[\"create\",\"read\",\"list\",\"complete\"]}]},\"client\":\"https://happy-life-bank-backend/accounts/pfry\"}"
+				// req.Body = io.NopCloser(bytes.NewReader([]byte(jsonBody)))
+
+				fmt.Println("req.ContentLength:", req.ContentLength)
+
+				// Handle body and content digest
+				if req.Body != nil {
+					// Read and replace the body
+					bodyBytes, err := io.ReadAll(req.Body)
+					if err != nil {
+							return err
+					}
+					req.Body.Close()
+					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+					// TODO: may need to set length from body - although in this context we'll have it already on req
+					// req.ContentLength = int64(len(bodyBytes))
+					req.Header.Set("Content-Length", fmt.Sprintf("%d", req.ContentLength))
+
+					contentDigest, err := createContentDigest2(bodyBytes)
+					if err != nil {
+						return err
+					}
+					req.Header.Set("Content-Digest", contentDigest)
+				}
+
+				sigHeaders, err := httpsignatureutils.CreateSignatureHeaders(httpsignatureutils.SignOptions{
+					Request:    req,
+					PrivateKey: edKey,
+					KeyID:      keyId,
+				})
+
+				if err != nil {
+					return err
+				}
+
+				// req.Header.Set("Signature", sigHeaders.Signature)
+				// Matches what i see in validateSignature from good bruno request
+				req.Header.Set("Signature", fmt.Sprintf("sig1=:%s:", sigHeaders.Signature))
+				req.Header.Set("Signature-Input", sigHeaders.SignatureInput)
+
+				// print the request here for debugging
+				// fmt.Println("Request Headers:", req.Header)
+				// fmt.Println("Request Body:", req.GetBody())
+				// fmt.Println("Request URL:", req.URL)
+				// fmt.Println("Request Method:", req.Method)
+				// fmt.Println("Request Content-Length:", req.ContentLength)
+
+				return nil
+			},
+		},
+	}
+
+	return &AuthenticatedClient2{
+		httpClient: &httpClient,
+		walletAddressUrl: walletAddressUrl,
+		privateKey: edKey, //privateKey.()
+		keyId: keyId,
+		Grant: &GrantRoutes{httpClient: &httpClient},
+	}
+}
+
 // Manual implemetnation of request signing
-func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyId string) *AuthenticatedClient {
+func NewAuthenticatedClient_man1(walletAddressUrl string, privateKey string, keyId string) *AuthenticatedClient2 {
 	edKey, err := loadBase64Key(privateKey)
 	if err != nil {
 		fmt.Println("Error loading key:", err)
@@ -91,8 +182,8 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 					// if err != nil {
 					// 	return err
 					// }
-					
-					// hardcoding for testing purposes... ensure its identical to burno req
+
+					// TODO: rm this. hardcoding for debugging purposes... ensure its identical to burno req
 					bodyBytes := []byte("{\"access_token\":{\"access\":[{\"type\":\"incoming-payment\",\"actions\":[\"create\",\"read\",\"list\",\"complete\"]}]},\"client\":\"https://happy-life-bank-backend/accounts/pfry\"}")
 					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
@@ -100,7 +191,7 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 					req.ContentLength = int64(len(bodyBytes))
 					req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
 
-					contentDigest, err := createContentDigest(bodyBytes)
+					contentDigest, err := createContentDigest2(bodyBytes)
 					if err != nil {
 						return err
 					}
@@ -110,7 +201,14 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 				components := createSignatureComponents(req)
 
 				// Create signature input string with alg parameter
-				created := time.Now().Unix()
+				// created := time.Now().Unix()
+				// unhardcode this - why is the signature different from bruno? created, signature input, digest are same
+				created := 1747856886
+				// created := 1747797344
+				// does 1747797344 match this signature?
+				// happy-life-auth-1      |       signature: 'sig1=:non+QR39gdeGirG2Dsyn0AKyREA2llfdnY0v7fdZlT0rCNtp6ARYYfntPTbPxOarQ2lE7apI7bEmqK9I+IHDBg==:',
+				// happy-life-auth-1      |       'signature-input': 'sig1=("@method" "@target-uri" "content-digest" "content-length" "content-type");created=1747797344;keyid="keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5";alg="ed25519"',
+				// no... why
 				signatureInput := fmt.Sprintf(
 					// `sig1=(%s);keyid="%s";alg="ed25519";created=%d`,
 					`sig1=("%s");created=%d;keyid="%s";alg="ed25519"`,
@@ -119,11 +217,18 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 					keyId,
 				)
 
+				host := req.Host
+				if host == "" {
+					host = req.URL.Host
+				}
+				targetUri := req.URL.Scheme + "://" + host + req.URL.RequestURI()
+
 				// Create string to sign
 				toSign := fmt.Sprintf(
 					"@method: %s\n@target-uri: %s",
 					req.Method,
-					req.URL.String(),
+					// req.URL.String(),
+					targetUri,
 				)
 
 				// Add optional components
@@ -146,6 +251,7 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 				// this is always the same for the same request... whereas bruno/lib implementation are different (timestamp?)
 
 				req.Header.Set("Signature", signatureString)
+				// req.Header.Set("Signature", "icbZKtQhY2BbjpNXQaCBfYJRNJ675vWUZA4UUfDUoGahC5nCYWvnh6b+5h6dE17nnX+yw7QVijM06gfyBmhlC")
 				req.Header.Set("Signature-Input", signatureInput)
 
 				return nil
@@ -153,7 +259,7 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 		},
 	}
 
-	return &AuthenticatedClient{
+	return &AuthenticatedClient2{
 		httpClient: &httpClient,
 		walletAddressUrl: walletAddressUrl,
 		privateKey: edKey, //privateKey.()
@@ -162,17 +268,9 @@ func NewAuthenticatedClient_man(walletAddressUrl string, privateKey string, keyI
 	}
 }
 
-func createContentDigest(body []byte) (string, error) {
-	hash := sha512.Sum512(body)
-	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
-
-	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
-	fmt.Printf("Content-Digest: %s\n", digest)
-	return digest, nil
-}
-
 // Implemenation using httpsign for request signing
-func NewAuthenticatedClient(walletAddressUrl, privateKey, keyId string) *AuthenticatedClient {
+// func NewAuthenticatedClient(walletAddressUrl, privateKey, keyId string) *AuthenticatedClient {
+func NewAuthenticatedClient_httpsign(walletAddressUrl, privateKey, keyId string) *AuthenticatedClient2 {
 	// for generating a key in go and passing in
 	// pemBytes, err := base64.StdEncoding.DecodeString(privateKey)
 	// if err != nil {
@@ -205,7 +303,7 @@ func NewAuthenticatedClient(walletAddressUrl, privateKey, keyId string) *Authent
 		Transport: signingTransport,
 	}
 
-	return &AuthenticatedClient{
+	return &AuthenticatedClient2{
 		httpClient:      httpClient,
 		walletAddressUrl: walletAddressUrl,
 		privateKey:      edKey,
@@ -220,6 +318,10 @@ type SigningRoundTripper struct {
 	Signer    *httpsign.Signer
 }
 
+// NOT WORKING
+// used by httpsign
+// I have some suspicion that the handling of the body is off but attempts to make it work
+// like working version doesnt yield any success
 func (s *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Body != nil && req.ContentLength > 0 {
 
@@ -231,13 +333,15 @@ func (s *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		// hardcode in body that we see bruno producing for testing purposes
 		// bodyBytes := []byte("{\"access_token\":{\"access\":[{\"type\":\"incoming-payment\",\"actions\":[\"create\",\"read\",\"list\",\"complete\"]}]},\"client\":\"https://happy-life-bank-backend/accounts/pfry\"}")
 		// ^ produces the same hash as bruno. still get invalid signature
+		// might be onto something though... content digest value matches bruno for the first time.
+		// - 'sha-512=:/LfvBez/1knzYV3v4+Ej1qidX28IuoPp4jJBNSTkgBAu5TN5qS2FrfEWJohbBjIk1Xg7+qanR6VPm2+XyrZ3lQ==:'
 
 		// get content length
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		req.ContentLength = int64(len(bodyBytes))
 		req.Header.Set("Content-length", string(len(bodyBytes)))
 		bodyReader := io.NopCloser(bytes.NewReader(bodyBytes))
-		
+
 		contentDigest, err := httpsign.GenerateContentDigestHeader(&bodyReader, []string{"sha-512"})
 		if err != nil {
 			return nil, err
@@ -256,29 +360,6 @@ func (s *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	req.Header.Set("Signature", signature)
 	req.Header.Set("Signature-Input", signatureInput)
 
-	///////////////////////
-	// TODO: rm... just testing key details in rafiki. can it verify?
-	// - no, it fails... suggests something is wrong with the private key im signing with here
-	jwk := JWK{
-		Kid: "keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
-		X:   "ubqoInifJ5sssIPPnQR1gVPfmoZnJtPhTkyMXNoJF_8",
-		Alg: "EdDSA",
-		Kty: "OKP",
-		Crv: "Ed25519",
-	}
-	// Perform verification
-	valid, err := verifyRequest(req, jwk)
-	if err != nil {
-		fmt.Println("Verification failed:", err)
-	} else if valid {
-		fmt.Println("Signature is valid!")
-	} else {
-		// this is firing... means i have a problem with the key Im signign with i guess
-		fmt.Println("Signature is invalid.")
-	}
-	////////////////////////
-
-
 	// Send the request
 	return s.Transport.RoundTrip(req)
 }
@@ -288,7 +369,6 @@ func loadBase64Key(base64Key string) (ed25519.PrivateKey, error) {
 	// -----BEGIN PRIVATE KEY-----
 	// MC4CAQAwBQYDK2VwBCIEIEqezmcPhOE8bkwN+jQrppfRYzGIdFTVWQGTHJIKpz88
 	// -----END PRIVATE KEY-----
-	
 
 	pemBytes, err := base64.StdEncoding.DecodeString(base64Key)
 	if err != nil {
@@ -300,7 +380,7 @@ func loadBase64Key(base64Key string) (ed25519.PrivateKey, error) {
 	if block == nil {
 		return nil, fmt.Errorf("failed to parse PEM block")
 	}
-	
+
 	blockJSON, err := json.MarshalIndent(block, "", "  ")
 	if err != nil {
 		fmt.Println("Error marshaling JWK:", err)
@@ -321,6 +401,24 @@ func loadBase64Key(base64Key string) (ed25519.PrivateKey, error) {
 	}
 }
 
+// func loadBase64Key(keyBase64 string) (ed25519.PrivateKey, error) {
+// 	pemBytes, err := base64.StdEncoding.DecodeString(keyBase64)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("Invalid base64: %v", err)
+// 	}
+
+// 	key, err := x509.ParsePKCS8PrivateKey(pemBytes)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("ParsePKCS8PrivateKey failed: %v", err)
+// 	}
+
+// 	edKey, ok := key.(ed25519.PrivateKey)
+// 	if !ok {
+// 		return nil, fmt.Errorf("Not an Ed25519 private key")
+// 	}
+// 	return edKey, nil
+// }
+
 func createSignatureComponents(req *http.Request) []string {
 	components := []string{"@method", "@target-uri"}
 
@@ -335,113 +433,187 @@ func createSignatureComponents(req *http.Request) []string {
 	return components
 }
 
-// TESTING that the signed request can be verified using the client key details in rafiki
-
-type JWK struct {
-	Kid string `json:"kid"`
-	X   string `json:"x"`
-	Alg string `json:"alg"`
-	Kty string `json:"kty"`
-	Crv string `json:"crv"`
+// SigningRoundTripper is a custom http.RoundTripper that signs outgoing requests
+type HTTPSFVSigningRoundTripper struct {
+	Transport  http.RoundTripper
+	PrivateKey ed25519.PrivateKey
+	KeyID      string
 }
 
-// Function to verify the request
-func verifyRequest(req *http.Request, jwk JWK) (bool, error) {
-	// Decode the base64 "x" value to get the public key
-	publicKeyBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
+func (s *HTTPSFVSigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Handle body and Content-Digest if present
+	if req.Body != nil && req.ContentLength > 0 {
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+
+		// Restore the body for the actual request
+		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		req.ContentLength = int64(len(bodyBytes))
+		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+
+		// Generate Content-Digest using httpsfv
+		contentDigest, err := createContentDigestWithHttpsfv(bodyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create content digest: %w", err)
+		}
+		req.Header.Set("Content-Digest", contentDigest)
+	}
+
+	// Create and set signature headers
+	signatureInput, signature, err := signRequestWithHttpsfv(req, s.PrivateKey, s.KeyID)
 	if err != nil {
-		return false, fmt.Errorf("error decoding public key: %v", err)
+		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
 
-	// Read the signature from the headers
-	signature := req.Header.Get("Signature")
-	if signature == "" {
-		return false, fmt.Errorf("signature missing in headers")
-	}
+	req.Header.Set("Signature-Input", signatureInput)
+	req.Header.Set("Signature", signature)
 
-	// Split on colons and get the base64-encoded signature part
-	parts := strings.Split(signature, ":")
-	if len(parts) != 3 {
-		fmt.Println("Invalid signature format")
-		return false, fmt.Errorf("could not parse signature from header")
-	}
-
-	signatureB64 := parts[1] // This is the base64-encoded signature
-	fmt.Println("Extracted Base64 Signature:", signatureB64)
-
-	// Reconstruct the signed data
-	signedData, err := reconstructSignedData(req)
-	if err != nil {
-		return false, fmt.Errorf("failed to reconstruct signed data: %v", err)
-	}
-
-	// Decode the signature from base64
-	signatureBytes, err := base64.StdEncoding.DecodeString(signatureB64)
-	if err != nil {
-		fmt.Println(signature)
-		return false, fmt.Errorf("error decoding signature: %v", err)
-	}
-
-	// Verify the signature using Ed25519
-	isValid := ed25519.Verify(ed25519.PublicKey(publicKeyBytes), signedData, signatureBytes)
-	return isValid, nil
+	// Forward the signed request to the underlying transport
+	return s.Transport.RoundTrip(req)
 }
 
-// Function to reconstruct signed data from request (simplified for demo)
-func reconstructSignedData(req *http.Request) ([]byte, error) {
-	var bodyBytes []byte
+// Create Content-Digest header using httpsfv
+func createContentDigestWithHttpsfv(body []byte) (string, error) {
+	// Calculate SHA-512 hash of the body
+	hash := sha512.Sum512(body)
+	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
+
+	// dict := httpsfv.NewDictionary()
+	// dict.Add("sha-512", httpsfv.NewItem(b64Hash))
+
+	// Create a dictionary with a single key "sha-512" and the base64 hash as its value
+	dict := httpsfv.NewDictionary()
+	dict.Add("sha-512", httpsfv.NewItem(b64Hash))
+
+	// Serialize the dictionary to a string
+	serialized, err := httpsfv.Marshal(dict)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal content digest: %w", err)
+	}
+
+	return serialized, nil
+}
+
+// Sign request using httpsfv
+func signRequestWithHttpsfv(req *http.Request, privateKey ed25519.PrivateKey, keyID string) (string, string, error) {
+	// Determine which components to include in the signature
+	components := []string{"@method", "@target-uri"}
+
+	// Add optional components if they exist in the headers
+	if req.Header.Get("Authorization") != "" {
+		components = append(components, "authorization")
+	}
+
 	if req.Body != nil {
-		bodyBytes, _ = io.ReadAll(req.Body)
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore the body
+		components = append(components, "content-digest", "content-length", "content-type")
 	}
-	// Include method, target URI, and body in signature input (example logic)
-	return []byte(fmt.Sprintf("%s %s %s", req.Method, req.URL.String(), bodyBytes)), nil
-}
 
-// TODO: rm if unused
-func generateJSONWebKey(){
-		// Generate Ed25519 key pair
-		publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			fmt.Println("Error generating key:", err)
-			return
-		}
-	
-		// Convert the public key to base64 URL encoding
-		x := base64.RawURLEncoding.EncodeToString(publicKey)
-	
-		// Create JWK object
-		jwk := JWK{
-			Kid: "keyid-123", // Replace with your key ID
-			X:   x,
-			Alg: "EdDSA",
-			Kty: "OKP",
-			Crv: "Ed25519",
-		}
-	
-		// Convert JWK object to JSON
-		jwkJSON, err := json.MarshalIndent(jwk, "", "  ")
-		if err != nil {
-			fmt.Println("Error marshaling JWK:", err)
-			return
-		}
-	
-		// Print the JWK
-		fmt.Println(string(jwkJSON))
-	
-		// Optional: Export the private key for later use
-		privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKey.Seed())
-		fmt.Println("Private Key (base64):", privateKeyBase64)
-}
-// TODO: rm if unused
-func GenerateNewPrivateKey() (string, error) {
-	// Generate a new Ed25519 key pair
-	_, privateKey, err := ed25519.GenerateKey(nil)
+	// Create signature input parameters
+	created := time.Now().Unix()
+
+	// Build signature input dictionary using httpsfv
+	signatureInputDict := httpsfv.NewDictionary()
+
+	// Create inner list with items for each component
+	innerList := httpsfv.InnerList{
+		Items:  make([]httpsfv.Item, len(components)),
+		Params: httpsfv.NewParams(),
+	}
+
+	// Add component identifiers to the inner list
+	for i, component := range components {
+		innerList.Items[i] = httpsfv.NewItem(component)
+	}
+
+	// Add signature parameters
+	innerList.Params.Add("created", created)
+	innerList.Params.Add("keyid", keyID)
+	innerList.Params.Add("alg", "ed25519")
+
+	// Add the inner list to the dictionary with key "sig1"
+	signatureInputDict.Add("sig1", &innerList)
+
+	// Serialize the signature input
+	signatureInputStr, err := httpsfv.Marshal(signatureInputDict)
 	if err != nil {
-		return "", err
+		return "", "", fmt.Errorf("failed to marshal signature input: %w", err)
 	}
 
-	encodedKey := base64.StdEncoding.EncodeToString(privateKey)
+	// Construct the string to sign
+	toSign := buildStringToSign(req, components)
 
-	return encodedKey, nil
+	// Sign the message
+	signature := ed25519.Sign(privateKey, []byte(toSign))
+
+	// Create signature dictionary
+	signatureDict := httpsfv.NewDictionary()
+	signatureDict.Add("sig1", httpsfv.NewItem(base64.StdEncoding.EncodeToString(signature)))
+
+	// Serialize the signature
+	signatureStr, err := httpsfv.Marshal(signatureDict)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to marshal signature: %w", err)
+	}
+
+	return signatureInputStr, signatureStr, nil
+}
+
+// Build the string to sign according to the HTTP Message Signatures spec
+func buildStringToSign(req *http.Request, components []string) string {
+	var builder strings.Builder
+
+	for i, component := range components {
+		if i > 0 {
+			builder.WriteString("\n")
+		}
+
+		switch component {
+		case "@method":
+			builder.WriteString("@method: ")
+			builder.WriteString(req.Method)
+		case "@target-uri":
+			builder.WriteString("@target-uri: ")
+			builder.WriteString(req.URL.String())
+		default:
+			// For regular headers, use lowercase name
+			headerName := strings.ToLower(component)
+			headerValue := req.Header.Get(headerName)
+			if headerValue != "" {
+				builder.WriteString(headerName)
+				builder.WriteString(": ")
+				builder.WriteString(headerValue)
+			}
+		}
+	}
+
+	return builder.String()
+}
+
+// NewAuthenticatedClientWithHttpsfv creates a new client that uses httpsfv for structured headers
+// func NewAuthenticatedClient(walletAddressUrl, privateKey, keyId string) *AuthenticatedClient {
+func NewAuthenticatedClientWithHttpsfv(walletAddressUrl, privateKey, keyId string) *AuthenticatedClient2 {
+
+	edKey, err := loadBase64Key(privateKey)
+	if err != nil {
+		fmt.Println("Error loading key:", err)
+		return nil
+	}
+
+	httpClient := &http.Client{
+		Transport: &HTTPSFVSigningRoundTripper{
+			Transport:  http.DefaultTransport,
+			PrivateKey: edKey,
+			KeyID:      keyId,
+		},
+	}
+
+	return &AuthenticatedClient2{
+		httpClient:       httpClient,
+		walletAddressUrl: walletAddressUrl,
+		privateKey:       edKey,
+		keyId:            keyId,
+		Grant:            &GrantRoutes{httpClient: httpClient},
+	}
 }
