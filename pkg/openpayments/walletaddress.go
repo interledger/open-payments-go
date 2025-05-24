@@ -8,6 +8,8 @@ import (
 	was "github.com/interledger/open-payments-go-sdk/pkg/generated/walletaddressserver"
 )
 
+// TODO: rework to follow pattern of other services/routes/resources/requests
+
 type WalletAddressRoutes struct{
 	httpClient *http.Client
 }
