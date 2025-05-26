@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/interledger/open-payments-go-sdk/internal/lib"
 	"github.com/interledger/open-payments-go-sdk/pkg/httpsignatureutils"
 )
 
@@ -22,10 +21,12 @@ type Client struct {
 }
 
 func NewClient() *Client {
-	httpClient := http.Client{Transport: &lib.HeaderTransport{Base: http.DefaultTransport}}
+	httpClient := &http.Client{
+		Transport: http.DefaultTransport,
+	}
 	return &Client{
-		httpClient: &httpClient,
-		WalletAddress: &WalletAddressRoutes{httpClient: &httpClient},
+		httpClient: httpClient,
+		WalletAddress: &WalletAddressRoutes{httpClient: httpClient},
 		IncomingPayment: &PublicIncomingPaymentService{DoUnsigned: httpClient.Do},
 	}
 }
