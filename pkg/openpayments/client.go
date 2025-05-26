@@ -16,7 +16,7 @@ type RequestDoer func(req *http.Request) (*http.Response, error)
 
 type Client struct {
 	httpClient *http.Client
-	WalletAddress *WalletAddressRoutes
+	WalletAddress *WalletAddressService
 	IncomingPayment *PublicIncomingPaymentService
 }
 
@@ -26,7 +26,7 @@ func NewClient() *Client {
 	}
 	return &Client{
 		httpClient: httpClient,
-		WalletAddress: &WalletAddressRoutes{httpClient: httpClient},
+		WalletAddress: &WalletAddressService{DoUnsigned: httpClient.Do},
 		IncomingPayment: &PublicIncomingPaymentService{DoUnsigned: httpClient.Do},
 	}
 }
@@ -74,6 +74,9 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 
 	return c
 }
+
+// TODO: move more of this into httpsignatureutils package? Basically everything into 
+// a CreateHeaders that reutnrs Signature and Signature-Input headers
 
 func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
 	// Read and re-insert body if present

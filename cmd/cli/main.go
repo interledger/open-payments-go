@@ -33,7 +33,7 @@ func main() {
 
 func getWalletAddress(){
 	fmt.Printf("\nclient.WalletAddress.Get(\"%s\")\n", clientWalletAddress)
-	walletAddress, err := client.WalletAddress.Get(clientWalletAddress)
+	walletAddress, err := client.WalletAddress.Get(context.TODO(), clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address: %v\n", err)
@@ -47,7 +47,7 @@ func getWalletAddress(){
 // seeing "keys": [] but bruno shows keys
 func getWalletAddressKeys(){
 	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", clientWalletAddress)
-	walletAddressKeys, err := client.WalletAddress.GetKeys(clientWalletAddress)
+	walletAddressKeys, err := client.WalletAddress.GetKeys(context.TODO(), clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address keys: %v\n", err)
@@ -59,7 +59,7 @@ func getWalletAddressKeys(){
 
 func getWalletAddressDIDDocument(){
 	fmt.Printf("\nclient.WalletAddress.GetDIDDocument(\"%s\"\n)", clientWalletAddress)
-	walletAddressDIDDocument, err := client.WalletAddress.GetDIDDocument(clientWalletAddress)
+	walletAddressDIDDocument, err := client.WalletAddress.GetDIDDocument(context.TODO(), clientWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address DID document: %v\n", err)
