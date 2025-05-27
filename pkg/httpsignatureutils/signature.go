@@ -32,9 +32,11 @@ func createSignatureBaseString(req *http.Request, components []string, created i
         case "@method":
             value = req.Method
         case "@target-uri":
-			// TODO: do the trailing slash better. Might already be there sometimes?
-            fmt.Println("Request URL:", req.URL.String() + "/")
-            value = req.URL.String() + "/"
+            urlStr := req.URL.String()
+            if !strings.HasSuffix(urlStr, "/") {
+                urlStr += "/"
+            }
+            value = urlStr
         case "authorization":
             if auth := req.Header.Get("Authorization"); auth != "" {
                 value = auth
