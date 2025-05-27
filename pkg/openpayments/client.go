@@ -20,15 +20,33 @@ type Client struct {
 	IncomingPayment *PublicIncomingPaymentService
 }
 
-func NewClient() *Client {
-	httpClient := &http.Client{
-		Transport: http.DefaultTransport,
+// ClientOption is used to configure optional behavior for the Open Payments client.
+type ClientOption func(*Client)
+
+// WithHTTPClientUnauthed allows setting a custom HTTP client.
+//
+// WARNING: Use with care. Replacing the internal http.Client could break
+// built-in behavior.
+func WithHTTPClientUnauthed(c *http.Client) ClientOption {
+	return func(client *Client) {
+		client.httpClient = c
 	}
-	return &Client{
-		httpClient: httpClient,
-		WalletAddress: &WalletAddressService{DoUnsigned: httpClient.Do},
-		IncomingPayment: &PublicIncomingPaymentService{DoUnsigned: httpClient.Do},
+}
+
+func NewClient(opts ...ClientOption) *Client {
+	c := &Client{
+		httpClient: &http.Client{
+			Transport: http.DefaultTransport,
+		},
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	c.WalletAddress = &WalletAddressService{DoUnsigned: c.httpClient.Do}
+	c.IncomingPayment = &PublicIncomingPaymentService{DoUnsigned: c.httpClient.Do}
+
+	return c
 }
 
 type AuthenticatedClient struct {
@@ -40,14 +58,21 @@ type AuthenticatedClient struct {
 	IncomingPayment *IncomingPaymentService
 }
 
-func createContentDigest(body []byte) (string) {
-	hash := sha512.Sum512(body)
-	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
-	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
-	return digest
+// AuthenticatedClientOption is used to configure optional behavior for the authenticated client.
+type AuthenticatedClientOption func(*AuthenticatedClient)
+
+
+// WithHTTPClientAuthed allows setting a custom HTTP client.
+//
+// WARNING: Use with care. Replacing the internal http.Client could break
+// built-in behavior.
+func WithHTTPClientAuthed(c *http.Client) AuthenticatedClientOption {
+	return func(ac *AuthenticatedClient) {
+		ac.httpClient = c
+	}
 }
 
-func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId string) *AuthenticatedClient {
+func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId string, opts ...AuthenticatedClientOption) *AuthenticatedClient {
 	edKey, err := httpsignatureutils.LoadBase64Key(privateKey)
 	if err != nil {
 		fmt.Println("Error loading key:", err)
@@ -64,6 +89,11 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		privateKey:       edKey,
 		keyId:            keyId,
 	}
+	
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	c.IncomingPayment = &IncomingPaymentService{
 		DoUnsigned: httpClient.Do,
 		DoSigned:   c.DoSigned,
@@ -73,6 +103,14 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 	}
 
 	return c
+}
+
+
+func createContentDigest(body []byte) (string) {
+	hash := sha512.Sum512(body)
+	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
+	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
+	return digest
 }
 
 // TODO: move more of this into httpsignatureutils package? Basically everything into 

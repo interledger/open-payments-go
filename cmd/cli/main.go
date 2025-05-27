@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
 	op "github.com/interledger/open-payments-go-sdk/pkg/openpayments"
@@ -12,16 +13,51 @@ import (
 var (
 	clientWalletAddress = "http://localhost:4000/accounts/pfry"
 	receiverOpenPaymentsAuthHost = "http://localhost:4006"
-	client = op.NewClient()
+	client = op.NewClient(op.WithHTTPClientUnauthed(&http.Client{
+		Transport: &HostHeaderRoundTripper{
+			rt:           http.DefaultTransport,
+		},
+	}),)
 )
 
 var authedClient = op.NewAuthenticatedClient(
 	"http://localhost:4000/accounts/pfry", 
-	// existing key from local environement, taken from bruno
+	// for testnet (get key from interledger-test.dev)
 	"LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
 	"keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
-	// for testnet (get key from interledger-test.dev)
+	op.WithHTTPClientAuthed(&http.Client{
+		Transport: &HostHeaderRoundTripper{
+			rt:           http.DefaultTransport,
+		},
+	}),
 )
+
+// HostHeaderRoundTripper is a RoundTripper used in this test to coerce 
+// the localhost host header to cloud-nine-wallet-backend/happy-life-bank-backend.
+// This prevents the wallet address middleware from incorrectly forming
+// the wallet address using localhost and causing failure(s?) such as 
+// GetWalletAddressKeys returning empty keys for a new wallet address instead 
+// of the actual keys from the existing address. This round tripper mirrors a 
+// bruno pre-request script.
+type HostHeaderRoundTripper struct {
+	rt       http.RoundTripper
+}
+
+// RoundTrip modifies the Host header if the request is to localhost:3000 or 4000.
+func (h *HostHeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	portsToHost := map[string]string{
+    "3000": "cloud-nine-wallet-backend",
+    "4000": "happy-life-bank-backend",
+	}
+
+	if req.URL.Hostname() == "localhost" {
+		port := req.URL.Port()
+		if host, ok := portsToHost[port]; ok { 
+			req.Host = host
+		}
+	}
+	return h.rt.RoundTrip(req)
+}
 
 func main() {
 	getWalletAddress()
@@ -43,8 +79,6 @@ func getWalletAddress(){
 	printJSON(walletAddress)
 }
 
-// TODO: fix this? 
-// seeing "keys": [] but bruno shows keys
 func getWalletAddressKeys(){
 	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", clientWalletAddress)
 	walletAddressKeys, err := client.WalletAddress.GetKeys(context.TODO(), clientWalletAddress)
