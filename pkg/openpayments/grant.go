@@ -14,27 +14,22 @@ type GrantService struct {
 	DoSigned   RequestDoer
 }
 
+// TODO: Address missing grant request type in generated types.
+// This re-constructs from the generated types therefore is prone 
+// to drift from OpenAPI spec. 
 type Grant struct {
-	AccessToken as.AccessToken
-	Continue    as.Continue
+	Interact *as.InteractResponse `json:"interact,omitempty"`
+	AccessToken *as.AccessToken `json:"access_token,omitempty"`
+	Continue as.Continue `json:"continue"`
 }
 
-// TODO: fix return:
-// For bruno example this has a bad AccessToken. see bruno but, the access token should not be null form.
-// Reading the body seemed to show the values as expected though.
-// {
-//   "AccessToken": {
-//     "access": null,
-//     "manage": "",
-//     "value": ""
-//   },
-//   "Continue": {
-//     "access_token": {
-//       "value": "5D91EE2CB6A64A718E7A"
-//     },
-//     "uri": "http://localhost:4006/continue/4c9d0eab-d9bd-4ac9-b4da-e02266e682ed"
-//   }
-// }
+func (gr *Grant) IsInteractive() bool {
+	return gr.Interact != nil
+}
+
+func (gr *Grant) IsGranted() bool {
+	return gr.AccessToken != nil
+}
 
 func (gs *GrantService) Request(ctx context.Context, url string, requestBody as.PostRequestJSONBody) (Grant, error) {
 	reqBodyBytes, err := json.Marshal(requestBody)
