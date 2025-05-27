@@ -2,6 +2,7 @@ package openpayments
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,16 +36,13 @@ type Grant struct {
 //   }
 // }
 
-// TODO: use context. commented out for now for backwards compatibility
-func (gs *GrantService) Request( url string, requestBody as.PostRequestJSONBody) (Grant, error) {
-// func (gs *GrantService) Request(ctx context.Context, url string, requestBody as.PostRequestJSONBody) (Grant2, error) {
+func (gs *GrantService) Request(ctx context.Context, url string, requestBody as.PostRequestJSONBody) (Grant, error) {
 	reqBodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
-	// req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to create request: %w", err)
 	}

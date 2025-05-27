@@ -169,7 +169,7 @@ func grantRequest() {
 	// errors: key is not valid base64?
 	// grantRequest, err := authedClient.Grant.Request("https://auth.interledger-test.dev/", requestBody)
 	
-	grant, err := authedClient.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
+	grant, err := authedClient.Grant.Request(context.TODO(), receiverOpenPaymentsAuthHost, requestBody)
 
 	if err != nil {
 			fmt.Printf("Error with grant request: %v\n", err)
