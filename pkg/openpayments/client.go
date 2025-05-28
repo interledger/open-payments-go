@@ -113,9 +113,6 @@ func createContentDigest(body []byte) (string) {
 	return digest
 }
 
-// TODO: move more of this into httpsignatureutils package? Basically everything into 
-// a CreateHeaders that reutnrs Signature and Signature-Input headers
-
 func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
 	// Read and re-insert body if present
 	if req.Body != nil {
@@ -147,3 +144,27 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 
 	return c.httpClient.Do(req)
 }
+
+// TODO: use or lose this DoSigned implementation. Did not like the (more or less) necessary side effect 
+// of CreateHeaders mutating the request. CreateHeaders has to add the content digest/length before signing. 
+// Could clone req in CreateHeaders but that seemed a bit heavy and potentially complicated. Alternatively 
+// could maybe just rename? SetSignatureHeaders? Just feels like maybe thats doing too much in httpsignatureutils.
+
+// func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
+// 	headers, err := httpsignatureutils.CreateHeaders(httpsignatureutils.SignOptions{
+// 		Request:    req,
+// 		PrivateKey: c.privateKey,
+// 		KeyID:      c.keyId,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// This aren't actually necessary to set because CreateHeaders does it.
+// 	// req.Header.Set("Content-Length", headers.ContentLength)
+// 	// req.Header.Set("Content-Digest", headers.ContentDigest)
+// 	req.Header.Set("Signature", fmt.Sprintf("sig1=:%s:", headers.Signature))
+// 	req.Header.Set("Signature-Input", headers.SignatureInput)
+
+// 	return c.httpClient.Do(req)
+// }

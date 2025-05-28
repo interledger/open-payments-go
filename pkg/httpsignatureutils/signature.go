@@ -1,21 +1,28 @@
 package httpsignatureutils
 
 import (
+	"bytes"
 	"crypto/ed25519"
+	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 )
 
+type ContentAndSignatureHeaders struct {
+    Signature      string
+    SignatureInput string
+    ContentDigest  string
+    ContentLength  string
+}
+
 type SignatureHeaders struct {
     Signature      string
     SignatureInput string
 }
-
-// TODO: use error if createSignatureBaseString cant find header for a given component?
-// var SignatureError = errors.New("failed to create signature")
 
 type SignOptions struct {
     Request    *http.Request
@@ -97,5 +104,44 @@ func CreateSignatureHeaders(opts SignOptions) (*SignatureHeaders, error) {
     return &SignatureHeaders{
         Signature:      signature,
         SignatureInput: signatureInput,
+    }, nil
+}
+
+
+func createContentDigest(body []byte) (string) {
+	hash := sha512.Sum512(body)
+	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
+	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
+	return digest
+}
+
+func CreateHeaders(opts SignOptions) (*ContentAndSignatureHeaders, error) {
+    req := opts.Request
+    var bodyBytes []byte
+    if req.Body != nil {
+        var err error
+        bodyBytes, err = io.ReadAll(req.Body)
+        if err != nil {
+            return nil, err
+        }
+        req.Body.Close()
+        req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+    }
+
+    if len(bodyBytes) > 0 {
+		req.Header.Set("Content-Digest", createContentDigest(bodyBytes))
+		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+    }
+
+    sigHeaders, err := CreateSignatureHeaders(opts)
+    if err != nil {
+        return nil, err
+    }
+
+    return &ContentAndSignatureHeaders{
+		Signature:      sigHeaders.Signature,
+		SignatureInput: sigHeaders.SignatureInput,
+		ContentDigest:  req.Header.Get("Content-Digest"),
+		ContentLength:  req.Header.Get("Content-Length"),
     }, nil
 }
