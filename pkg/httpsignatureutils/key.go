@@ -14,7 +14,6 @@ func LoadBase64Key(base64Key string) (ed25519.PrivateKey, error) {
 		return nil, fmt.Errorf("invalid base64: %w", err)
 	}
 
-	// Step : Decode the PEM block
 	block, _ := pem.Decode(pemBytes)
 	if block == nil {
 		return nil, fmt.Errorf("failed to parse PEM block")

@@ -42,40 +42,40 @@ func createSignatureBaseString(req *http.Request, components []string, created i
         var value string
         switch strings.ToLower(comp) {
         case "@method":
-			value = req.Method
-		case "@target-uri":
+            value = req.Method
+        case "@target-uri":
             urlStr := req.URL.String()
             if !strings.HasSuffix(urlStr, "/") {
                 urlStr += "/"
             }
             value = urlStr
-		case "authorization":
-			value = req.Header.Get("Authorization")
-			if value == "" {
-				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-			}
-		case "content-digest":
-			value = req.Header.Get("Content-Digest")
-			if value == "" {
-				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-			}
-		case "content-length":
-			value = req.Header.Get("Content-Length")
-			if value == "" {
-				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-			}
-		case "content-type":
-			value = req.Header.Get("Content-Type")
-			if value == "" {
-				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-			}
-		default:
-			// try to get any other component as a header.
-			value = req.Header.Get(comp)
-			if value == "" {
-				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-			}
-		}
+        case "authorization":
+            value = req.Header.Get("Authorization")
+            if value == "" {
+                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+            }
+        case "content-digest":
+            value = req.Header.Get("Content-Digest")
+            if value == "" {
+                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+            }
+        case "content-length":
+            value = req.Header.Get("Content-Length")
+            if value == "" {
+                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+            }
+        case "content-type":
+            value = req.Header.Get("Content-Type")
+            if value == "" {
+                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+            }
+        default:
+            // try to get any other component as a header.
+            value = req.Header.Get(comp)
+            if value == "" {
+                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+            }
+        }
         parts = append(parts, fmt.Sprintf("\"%s\": %s", comp, value))
     }
 
