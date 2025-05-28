@@ -42,8 +42,11 @@ func parseSignatureInput(input string) ([]string, int64, string, error) {
 		switch {
 		case strings.HasPrefix(part, "(") && strings.HasSuffix(part, ")"):
 			inner := part[1 : len(part)-1]
-			components = strings.Fields(inner)
-			
+			parsedComponents := strings.Fields(inner)
+			// strip quotes from each parsed component
+			for _, comp := range parsedComponents {
+				components = append(components, strings.Trim(comp, `"`))
+			}
 		case strings.HasPrefix(part, "created="):
 			val := strings.TrimPrefix(part, "created=")
 			t, err := strconv.ParseInt(val, 10, 64)
@@ -83,7 +86,10 @@ func ValidateSignature(opts *ValidationOptions) error {
 		return ErrMissingSignature
 	}
 
-	baseString := createSignatureBaseString(opts.Request, components, created, keyID)
+	baseString, err := createSignatureBaseString(opts.Request, components, created, keyID)
+	if err != nil {
+		return ErrInvalidSignature
+	}
 
 	sigBytes, err := base64.StdEncoding.DecodeString(sig)
 	if err != nil || len(sigBytes) != ed25519.SignatureSize {

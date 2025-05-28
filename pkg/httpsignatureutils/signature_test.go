@@ -49,7 +49,11 @@ func TestCreateSignatureHeaders_Basic(t *testing.T) {
 
 	// verify signature
 	created := time.Now().Unix()
-	baseString := createSignatureBaseString(req, []string{"@method", "@target-uri", "content-type"}, created, opts.KeyID)
+	baseString, err := createSignatureBaseString(req, []string{"@method", "@target-uri", "content-type"}, created, opts.KeyID)
+	if err != nil {
+		t.Fatalf("Failed to create signature base string: %v", err)
+	}
+
 	sigBytes, err := base64.StdEncoding.DecodeString(headers.Signature)
 	if err != nil {
 		t.Fatalf("Failed to decode signature: %v", err)

@@ -5,11 +5,16 @@ import (
 	"crypto/ed25519"
 	"crypto/sha512"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+)
+
+var (
+	ErrMissingRequiredHeader = errors.New("missing required header")
 )
 
 type ContentAndSignatureHeaders struct {
@@ -30,39 +35,49 @@ type SignOptions struct {
     KeyID      string
 }
 
-func createSignatureBaseString(req *http.Request, components []string, created int64, keyID string) string {
+func createSignatureBaseString(req *http.Request, components []string, created int64, keyID string) (string, error) {
     var parts []string
+
+    fmt.Println("components", components)
 
     for _, comp := range components {
         var value string
         switch strings.ToLower(comp) {
         case "@method":
-            value = req.Method
-        case "@target-uri":
+			value = req.Method
+		case "@target-uri":
             urlStr := req.URL.String()
             if !strings.HasSuffix(urlStr, "/") {
                 urlStr += "/"
             }
             value = urlStr
-        case "authorization":
-            if auth := req.Header.Get("Authorization"); auth != "" {
-                value = auth
-            }
-        case "content-digest":
-            if cd := req.Header.Get("Content-Digest"); cd != "" {
-                value = cd
-            }
-        case "content-length":
-            if cl := req.Header.Get("Content-Length"); cl != "" {
-                value = cl
-            }
-        case "content-type":
-            if ct := req.Header.Get("Content-Type"); ct != "" {
-                value = ct
-            }
-        default:
-            value = ""
-        }
+		case "authorization":
+			value = req.Header.Get("Authorization")
+			if value == "" {
+				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+			}
+		case "content-digest":
+			value = req.Header.Get("Content-Digest")
+			if value == "" {
+				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+			}
+		case "content-length":
+			value = req.Header.Get("Content-Length")
+			if value == "" {
+				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+			}
+		case "content-type":
+			value = req.Header.Get("Content-Type")
+			if value == "" {
+				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+			}
+		default:
+			// try to get any other component as a header.
+			value = req.Header.Get(comp)
+			if value == "" {
+				return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
+			}
+		}
         parts = append(parts, fmt.Sprintf("\"%s\": %s", comp, value))
     }
 
@@ -74,7 +89,7 @@ func createSignatureBaseString(req *http.Request, components []string, created i
 
     parts = append(parts, fmt.Sprintf("\"@signature-params\": %s", sigParams))
 
-    return strings.Join(parts, "\n")
+    return strings.Join(parts, "\n"), nil
 }
 
 func CreateSignatureHeaders(opts SignOptions) (*SignatureHeaders, error) {
@@ -90,7 +105,11 @@ func CreateSignatureHeaders(opts SignOptions) (*SignatureHeaders, error) {
 
     created := time.Now().Unix()
 
-    signatureBase := createSignatureBaseString(opts.Request, components, created, opts.KeyID)
+    signatureBase, err := createSignatureBaseString(opts.Request, components, created, opts.KeyID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signature base string: %w", err)
+	}
 
     signatureBytes := ed25519.Sign(opts.PrivateKey, []byte(signatureBase))
     signature := base64.StdEncoding.EncodeToString(signatureBytes)

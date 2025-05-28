@@ -20,7 +20,7 @@ func TestCreateAndValidateSignature(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	sigHeaders, err := CreateSignatureHeaders(SignOptions{
+	sigHeaders, err := CreateHeaders(SignOptions{
 		Request:    req,
 		PrivateKey: privateKey,
 		KeyID:      "test-key",
