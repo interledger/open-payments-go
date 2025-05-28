@@ -32,17 +32,14 @@ func GenerateNewPrivateKey() (string, error) {
 
 // TODO: rm if unused
 func generateJSONWebKey(){
-	// Generate Ed25519 key pair
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		fmt.Println("Error generating key:", err)
 		return
 	}
 
-	// Convert the public key to base64 URL encoding
 	x := base64.RawURLEncoding.EncodeToString(publicKey)
 
-	// Create JWK object
 	jwk := JWK{
 		Kid: "keyid-123", // Replace with your key ID
 		X:   x,
@@ -51,17 +48,14 @@ func generateJSONWebKey(){
 		Crv: "Ed25519",
 	}
 
-	// Convert JWK object to JSON
 	jwkJSON, err := json.MarshalIndent(jwk, "", "  ")
 	if err != nil {
 		fmt.Println("Error marshaling JWK:", err)
 		return
 	}
 
-	// Print the JWK
 	fmt.Println(string(jwkJSON))
 
-	// Optional: Export the private key for later use
 	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKey.Seed())
 	fmt.Println("Private Key (base64):", privateKeyBase64)
 }
