@@ -1,6 +1,7 @@
 package openpayments
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -37,8 +38,8 @@ func TestWalletAddress_Get_SuccessfulResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewUnauthenticatedClient()
-	walletAddress, err := client.WalletAddress.Get(server.URL)
+	client := NewClient()
+	walletAddress, err := client.WalletAddress.Get(context.TODO(), server.URL)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -55,8 +56,8 @@ func TestWalletAddress_Get_FailedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewUnauthenticatedClient()
-	walletAddress, err := client.WalletAddress.Get(server.URL)
+	client := NewClient()
+	walletAddress, err := client.WalletAddress.Get(context.TODO(), server.URL)
 	if err == nil {
 			t.Fatalf("expected an error, got nil")
 	}

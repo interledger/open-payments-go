@@ -1,38 +1,93 @@
 package openpayments
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/interledger/open-payments-go-sdk/internal/lib"
 	was "github.com/interledger/open-payments-go-sdk/pkg/generated/walletaddressserver"
 )
 
-type WalletAddressRoutes struct{
-	httpClient *http.Client
+type WalletAddressService struct {
+	DoUnsigned RequestDoer
 }
 
-func (wa *WalletAddressRoutes) Get(url string) (was.WalletAddress, error) {
-	walletAddress, err := lib.FetchAndDecode[was.WalletAddress](wa.httpClient, url)
+func (wa *WalletAddressService) Get(ctx context.Context, url string) (was.WalletAddress, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return was.WalletAddress{}, err
+    }
+
+    resp, err := wa.DoUnsigned(req)
 	if err != nil {
-		return was.WalletAddress{}, fmt.Errorf("failed to get wallet address: %w", err)
+		return was.WalletAddress{}, err
 	}
-	return walletAddress, nil
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return was.WalletAddress{}, fmt.Errorf("failed to get wallet address: %s", resp.Status)
+    }
+
+    var walletAddressResponse was.WalletAddress
+    err = json.NewDecoder(resp.Body).Decode(&walletAddressResponse)
+    if err != nil {
+        return was.WalletAddress{}, fmt.Errorf("failed to decoding response body: %s", err)
+    }
+
+    return walletAddressResponse, nil
 }
 
-func (wa *WalletAddressRoutes) GetKeys(url string) (was.JsonWebKeySet, error) {
-	// Modify the URL directly
-	keySet, err := lib.FetchAndDecode[was.JsonWebKeySet](wa.httpClient, url+"/jwks.json")
+func (wa *WalletAddressService) GetKeys(ctx context.Context, url string) (was.JsonWebKeySet, error) {
+    url = url + "/jwks.json"
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    
+    if err != nil {
+        return was.JsonWebKeySet{}, err
+    }
+
+    resp, err := wa.DoUnsigned(req)
 	if err != nil {
-		return was.JsonWebKeySet{}, fmt.Errorf("failed to get json web keys: %w", err)
+		return was.JsonWebKeySet{}, err
 	}
-	return keySet, nil
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return was.JsonWebKeySet{}, fmt.Errorf("failed to get json web keys: %s", resp.Status)
+    }
+
+    var keyResponse was.JsonWebKeySet
+    err = json.NewDecoder(resp.Body).Decode(&keyResponse)
+    if err != nil {
+        return was.JsonWebKeySet{}, fmt.Errorf("failed to decoding response body: %s", err)
+    }
+
+    return keyResponse, nil
 }
 
-func (wa *WalletAddressRoutes) GetDIDDocument(url string) (was.DidDocument, error) {
-	didDocument, err := lib.FetchAndDecode[was.DidDocument](wa.httpClient, url+"/did.json")
+func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, url string) (was.DidDocument, error) {
+    url = url + "/did.json"
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    
+    if err != nil {
+        return was.DidDocument{}, err
+    }
+
+    resp, err := wa.DoUnsigned(req)
 	if err != nil {
-		return was.DidDocument{}, fmt.Errorf("failed to get DID document: %w", err)
+		return was.DidDocument{}, err
 	}
-	return didDocument, nil
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return was.DidDocument{}, fmt.Errorf("failed to get DID document: %s", resp.Status)
+    }
+
+    var DIDDocumentResponse was.DidDocument
+    err = json.NewDecoder(resp.Body).Decode(&DIDDocumentResponse)
+    if err != nil {
+        return was.DidDocument{}, fmt.Errorf("failed to decoding response body: %s", err)
+    }
+
+    return DIDDocumentResponse, nil
 }

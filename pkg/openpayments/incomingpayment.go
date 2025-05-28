@@ -1,35 +1,21 @@
 package openpayments
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/interledger/open-payments-go-sdk/internal/lib"
 	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
 )
 
-type UnauthenticatedIncomingPaymentRoutes struct{
-	httpClient *http.Client
+type IncomingPaymentService struct {
+	DoUnsigned RequestDoer
+	DoSigned RequestDoer
 }
 
-func (ip *UnauthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
-	return getPublic(ip.httpClient, url)
-}
-
-type AuthenticatedIncomingPaymentRoutes struct{
-	httpClient *http.Client
-}
-
-func (ip *AuthenticatedIncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
-	return getPublic(ip.httpClient, url)
-}
-
-func (ip *AuthenticatedIncomingPaymentRoutes) Get(url string, accessToken string) (rs.IncomingPayment, error) {
-	incomingPayment, err := lib.FetchAndDecode[rs.IncomingPayment](ip.httpClient, url)
-	if err != nil {
-		return rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %w", err)
-	}
-	return incomingPayment, nil
+type PublicIncomingPaymentService struct {
+	DoUnsigned RequestDoer
 }
 
 type Pagination struct {
@@ -43,32 +29,65 @@ type ListArgs struct {
 	Pagination Pagination
 }
 
-// TODO: wont work because rafiki will fail on open api validation because there is no sig header
-func (ip *AuthenticatedIncomingPaymentRoutes) List(url string, accessToken string, args ListArgs) ([]rs.IncomingPayment, error) {
-	queryParams := map[string]string{
-		"walletAddress": args.WalletAddress,
-		"first":         args.Pagination.First,
-		"last":          args.Pagination.Last,
-		"cursor":        args.Pagination.Cursor,
-	}
-	fullURL, err := lib.BuildQueryParams(url, queryParams)
-	
-	if err != nil {
-		return nil, fmt.Errorf("failed to build query params: %w", err)
-	}
-
-	incomingPayments, err := lib.FetchAndDecode[[]rs.IncomingPayment](ip.httpClient, fullURL)
-	if err != nil {
-		return []rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %w", err)
-	}
-	return incomingPayments, nil
+func (ip *IncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, ip.DoUnsigned, url)
 }
 
-
-func getPublic(httpClient *http.Client, url string) (rs.PublicIncomingPayment, error) {
-	publicPayment, err := lib.FetchAndDecode[rs.PublicIncomingPayment](httpClient, url)
+func (pp *PublicIncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, pp.DoUnsigned, url)
+}
+func getPublic(ctx context.Context, doUnsigned RequestDoer, url string) (rs.PublicIncomingPayment, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get public incoming payment: %w", err)
+		return rs.PublicIncomingPayment{}, err
 	}
-	return publicPayment, nil
+
+	resp, err := doUnsigned(req)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+	}
+
+	var incomingPayment rs.PublicIncomingPayment
+	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %s", err)
+	}
+
+	return incomingPayment, nil
+}
+
+// TODO: verify working
+func (ip *IncomingPaymentService) Get(ctx context.Context, url string, accessToken string) (rs.IncomingPayment, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return rs.IncomingPayment{}, err
+	}
+
+	resp, err := ip.DoSigned(req)
+	if err != nil {
+		return rs.IncomingPayment{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return rs.IncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+	}
+
+	var incomingPayment rs.IncomingPayment
+	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
+	if err != nil {
+		return rs.IncomingPayment{}, fmt.Errorf("failed to decode response body: %s", err)
+	}
+
+	return incomingPayment, nil
+}
+
+// TODO: implement
+func (ip *IncomingPaymentService) List(ctx context.Context, url string, accessToken string, args ListArgs) ([]rs.IncomingPayment, error) {
+	return nil, nil
 }

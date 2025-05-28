@@ -1,51 +1,63 @@
-// These methods are currently broken. They depend on signing headers to authorize request.
-
 package openpayments
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
 )
 
-type GrantRoutes struct{
-	httpClient *http.Client
+type GrantService struct {
+	DoSigned   RequestDoer
 }
 
+// TODO: Address missing grant request type in generated types.
+// This re-constructs from the generated types therefore is prone 
+// to drift from OpenAPI spec. 
 type Grant struct {
-	AccessToken as.AccessToken
-	Continue as.Continue
+	Interact *as.InteractResponse `json:"interact,omitempty"`
+	AccessToken *as.AccessToken `json:"access_token,omitempty"`
+	Continue as.Continue `json:"continue"`
 }
 
-func (g *GrantRoutes) Request(url string, requestBody as.PostRequestJSONBody) (Grant, error) {
-		reqBodyBytes, err := json.Marshal(requestBody)
-		if err != nil {
-			return Grant{}, fmt.Errorf("failed to marshal request body: %s", err)
-		}
+func (gr *Grant) IsInteractive() bool {
+	return gr.Interact != nil
+}
 
-    resp, err := g.httpClient.Post(url,  "application/json", bytes.NewBuffer(reqBodyBytes))
-    if err != nil {
-        return Grant{}, err
-    }
-    defer resp.Body.Close()
+func (gr *Grant) IsGranted() bool {
+	return gr.AccessToken != nil
+}
 
-		// TODO: remove this debug log after authorization implemented and this is confirmed working 
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Println("Response Body:", string(body))
+func (gs *GrantService) Request(ctx context.Context, url string, requestBody as.PostRequestJSONBody) (Grant, error) {
+	reqBodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
+	}
 
-    if resp.StatusCode != http.StatusOK {
-        return Grant{}, fmt.Errorf("failed to perform grant request: %s", resp.Status)
-    }
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-    var grantResponse Grant
-    err = json.NewDecoder(resp.Body).Decode(&grantResponse)
-    if err != nil {
-        return Grant{}, fmt.Errorf("failed to decoding response body: %s", err)
-    }
+	resp, err := gs.DoSigned(req)
+	if err != nil {
+		return Grant{}, err
+	}
+	defer resp.Body.Close()
 
-    return grantResponse, nil
+	if resp.StatusCode != http.StatusOK {
+		return Grant{}, fmt.Errorf("failed to perform grant request: %s", resp.Status)
+	}
+
+	var grantResponse Grant
+	err = json.NewDecoder(resp.Body).Decode(&grantResponse)
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to decode response body: %w", err)
+	}
+
+	return grantResponse, nil
 }
