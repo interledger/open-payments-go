@@ -38,8 +38,6 @@ type SignOptions struct {
 func createSignatureBaseString(req *http.Request, components []string, created int64, keyID string) (string, error) {
     var parts []string
 
-    fmt.Println("components", components)
-
     for _, comp := range components {
         var value string
         switch strings.ToLower(comp) {
