@@ -1,6 +1,7 @@
 package openpayments
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,15 +9,20 @@ import (
 	was "github.com/interledger/open-payments-go-sdk/pkg/generated/walletaddressserver"
 )
 
-type WalletAddressRoutes struct{
-	httpClient *http.Client
+type WalletAddressService struct {
+	DoUnsigned RequestDoer
 }
 
-func (wa *WalletAddressRoutes) Get(url string) (was.WalletAddress, error) {
-    resp, err := wa.httpClient.Get(url)
+func (wa *WalletAddressService) Get(ctx context.Context, url string) (was.WalletAddress, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     if err != nil {
         return was.WalletAddress{}, err
     }
+
+    resp, err := wa.DoUnsigned(req)
+	if err != nil {
+		return was.WalletAddress{}, err
+	}
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
@@ -32,11 +38,18 @@ func (wa *WalletAddressRoutes) Get(url string) (was.WalletAddress, error) {
     return walletAddressResponse, nil
 }
 
-func (wa *WalletAddressRoutes) GetKeys(url string) (was.JsonWebKeySet, error) {
-    resp, err := wa.httpClient.Get(url + "/jwks.json")
+func (wa *WalletAddressService) GetKeys(ctx context.Context, url string) (was.JsonWebKeySet, error) {
+    url = url + "/jwks.json"
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    
     if err != nil {
         return was.JsonWebKeySet{}, err
     }
+
+    resp, err := wa.DoUnsigned(req)
+	if err != nil {
+		return was.JsonWebKeySet{}, err
+	}
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
@@ -52,11 +65,18 @@ func (wa *WalletAddressRoutes) GetKeys(url string) (was.JsonWebKeySet, error) {
     return keyResponse, nil
 }
 
-func (wa *WalletAddressRoutes) GetDIDDocument(url string) (was.DidDocument, error) {
-    resp, err := wa.httpClient.Get(url + "/did.json")
+func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, url string) (was.DidDocument, error) {
+    url = url + "/did.json"
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    
     if err != nil {
         return was.DidDocument{}, err
     }
+
+    resp, err := wa.DoUnsigned(req)
+	if err != nil {
+		return was.DidDocument{}, err
+	}
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {

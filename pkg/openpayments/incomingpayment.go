@@ -1,6 +1,7 @@
 package openpayments
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,26 +9,43 @@ import (
 	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
 )
 
-type IncomingPaymentRoutes struct{
-	httpClient *http.Client
+type IncomingPaymentService struct {
+	DoUnsigned RequestDoer
+	DoSigned RequestDoer
 }
 
-func (ip *IncomingPaymentRoutes) GetPublic(url string) (rs.PublicIncomingPayment, error) {
-		resp, err := ip.httpClient.Get(url)
-		if err != nil {
-				return rs.PublicIncomingPayment{}, err
-		}
-		defer resp.Body.Close()
+type PublicIncomingPaymentService struct {
+	DoUnsigned RequestDoer
+}
 
-		if resp.StatusCode != http.StatusOK {
-				return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
-		}
+func (ip *IncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, ip.DoUnsigned, url)
+}
 
-		var incomingPaymentResponse rs.PublicIncomingPayment
-		err = json.NewDecoder(resp.Body).Decode(&incomingPaymentResponse)
-		if err != nil {
-				return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decoding response body: %s", err)
-		}
+func (pp *PublicIncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, pp.DoUnsigned, url)
+}
+func getPublic(ctx context.Context, do RequestDoer, url string) (rs.PublicIncomingPayment, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, err
+	}
 
-		return incomingPaymentResponse, nil
+	resp, err := do(req)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+	}
+
+	var incomingPaymentResponse rs.PublicIncomingPayment
+	err = json.NewDecoder(resp.Body).Decode(&incomingPaymentResponse)
+	if err != nil {
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %s", err)
+	}
+
+	return incomingPaymentResponse, nil
 }

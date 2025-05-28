@@ -6,11 +6,15 @@ requires:
 
 ## Commands
 
-### Run all tests
+### Run tests
 
 From root:
 
     go test ./...
+
+Or to run test from a specific package:
+
+    go test -v ./pkg/httpsignatureutils
 
 ### Update OpenAPI Spec
 
