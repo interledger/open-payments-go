@@ -1,5 +1,7 @@
 package main
 
+// TOOD: remove? migrated these to integration test
+
 import (
 	"context"
 	"encoding/json"
@@ -11,7 +13,7 @@ import (
 )
 
 var (
-	clientWalletAddress = "http://localhost:4000/accounts/pfry"
+	pfryWalletAddress = "http://localhost:4000/accounts/pfry"
 	receiverOpenPaymentsAuthHost = "http://localhost:4006"
 	client = op.NewClient(op.WithHTTPClientUnauthed(&http.Client{
 		Transport: &HostHeaderRoundTripper{
@@ -21,7 +23,9 @@ var (
 )
 
 var authedClient = op.NewAuthenticatedClient(
-	"http://localhost:4000/accounts/pfry", 
+	// for testnet, like "https://interledger-test.dev/blair"
+	// "http://localhost:4000/accounts/pfry", 
+	"https://happy-life-bank-backend/accounts/pfry",
 	// for testnet (get key from interledger-test.dev)
 	"LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
 	"keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
@@ -60,22 +64,24 @@ func (h *HostHeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 }
 
 func main() {
+	incomingPaymentID := "8200a86d-a551-47ca-8618-acb5b59a58a1" // Make payment in rafiki and use id
+	
 	// Unauthenticated
 	getWalletAddress()
 	getWalletAddressKeys()
 	getWalletAddressDIDDocument() // Should fail, not implemented in rafiki
-	getPublicIncomingPaymentUnauthed("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131") // Make payment in rafiki and use id
+	getPublicIncomingPaymentUnauthed(incomingPaymentID)
 
 	// Authenticated
-	getPublicIncomingPaymentAuthed("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131")   // Make payment in rafiki and use id
-	getIncomingPayment("c021ed69-45fe-4bf3-9e2a-27c5bb6b0131")               // Make payment in rafiki and use id
+	grantRequestIncomingPayment()
+	getPublicIncomingPaymentAuthed(incomingPaymentID)
+	getIncomingPayment(incomingPaymentID) // Should include all fields (not just public) 
 	getIncomingPaymentList()
-	grantRequest()
 }
 
 func getWalletAddress(){
-	fmt.Printf("\nclient.WalletAddress.Get(\"%s\")\n", clientWalletAddress)
-	walletAddress, err := client.WalletAddress.Get(context.TODO(), clientWalletAddress)
+	fmt.Printf("\nclient.WalletAddress.Get(\"%s\")\n", "http://localhost:4000/accounts/pfry")
+	walletAddress, err := client.WalletAddress.Get(context.TODO(), "http://localhost:4000/accounts/pfry")
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address: %v\n", err)
@@ -86,8 +92,8 @@ func getWalletAddress(){
 }
 
 func getWalletAddressKeys(){
-	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", clientWalletAddress)
-	walletAddressKeys, err := client.WalletAddress.GetKeys(context.TODO(), clientWalletAddress)
+	fmt.Printf("\nclient.WalletAddress.GetKeys(\"%s\")\n", pfryWalletAddress)
+	walletAddressKeys, err := client.WalletAddress.GetKeys(context.TODO(), pfryWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address keys: %v\n", err)
@@ -98,8 +104,8 @@ func getWalletAddressKeys(){
 }
 
 func getWalletAddressDIDDocument(){
-	fmt.Printf("\nclient.WalletAddress.GetDIDDocument(\"%s\"\n)", clientWalletAddress)
-	walletAddressDIDDocument, err := client.WalletAddress.GetDIDDocument(context.TODO(), clientWalletAddress)
+	fmt.Printf("\nclient.WalletAddress.GetDIDDocument(\"%s\"\n)", pfryWalletAddress)
+	walletAddressDIDDocument, err := client.WalletAddress.GetDIDDocument(context.TODO(), pfryWalletAddress)
 
 	if err != nil {
 		fmt.Printf("Error fetching wallet address DID document: %v\n", err)
@@ -174,12 +180,12 @@ func getPublicIncomingPaymentAuthed(incomingPaymentId string) {
 
 // 	requestBody := as.PostRequestJSONBody{
 // 		AccessToken: accessToken,
-// 		// Client should be, clientWalletAddress but adjusted to use domain name
-// 		// Client:      clientWalletAddress, //"https://happy-life-bank-backend/accounts/pfry"
+// 		// Client should be, pfryWalletAddress but adjusted to use domain name
+// 		// Client:      pfryWalletAddress, //"https://happy-life-bank-backend/accounts/pfry"
 // 		Client:      "https://happy-life-bank-backend/accounts/pfry",
 // 		// Interact: &interact,
 // 	}
-// 	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", clientWalletAddress, requestBody)
+// 	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", pfryWalletAddress, requestBody)
 // 	grantRequest, err := authedClient.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
 	
 // 	if err != nil {
@@ -189,8 +195,7 @@ func getPublicIncomingPaymentAuthed(incomingPaymentId string) {
 // 	printJSON(grantRequest)
 // }
 
-// grant request incoming payment
-func grantRequest() {
+func grantRequestIncomingPayment() (op.Grant, error) {
 	incomingAccess := as.AccessIncoming{
 		Type: as.IncomingPayment,
 		Actions: []as.AccessIncomingActions{
@@ -203,8 +208,7 @@ func grantRequest() {
 	accessItem := as.AccessItem{}
 	err := accessItem.FromAccessIncoming(incomingAccess)
 	if err != nil {
-			fmt.Println("Error creating AccessItem:", err)
-			return
+		return op.Grant{}, fmt.Errorf("error creating AccessItem: %w", err)
 	}
 	accessToken := struct {
 			Access as.Access `json:"access"`
@@ -214,7 +218,7 @@ func grantRequest() {
 	requestBody := as.PostRequestJSONBody{
 			AccessToken: accessToken,
 			// for local
-			Client:      "https://happy-life-bank-backend/accounts/pfry",
+			// Client:      "https://happy-life-bank-backend/accounts/pfry",
 			// for testnet:
 			// Client:      		"https://interledger-test.dev/blair", // or similar
 	}
@@ -223,16 +227,16 @@ func grantRequest() {
 	// errors: key is not valid base64?
 	// grantRequest, err := authedClient.Grant.Request("https://auth.interledger-test.dev/", requestBody)
 	
+
 	grant, err := authedClient.Grant.Request(context.TODO(), receiverOpenPaymentsAuthHost, requestBody)
 
 	if err != nil {
-			fmt.Printf("Error with grant request: %v\n", err)
-			return
+		return op.Grant{}, fmt.Errorf("error with grant request: %w", err)
 	}
 
-	fmt.Println("Completed grant request with DoSigned")
-
 	printJSON(grant)
+
+	return grant, nil
 }
 
 func getIncomingPayment(incomingPaymentId string) {
@@ -305,10 +309,10 @@ func getIncomingPaymentList() {
 
 // 	requestBody := as.PostRequestJSONBody{
 // 		AccessToken: accessToken,
-// 		Client:      clientWalletAddress,
+// 		Client:      pfryWalletAddress,
 // 		// Interact: &interact,
 // 	}
-// 	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", clientWalletAddress, requestBody)
+// 	fmt.Printf("\nclient.Grant.Request(\"%s\", \"%+v\"\n)", pfryWalletAddress, requestBody)
 // 	grantRequest, err := client.Grant.Request(receiverOpenPaymentsAuthHost, requestBody)
 // 	if err != nil {
 // 		fmt.Printf("Error with grant request: %v\n", err)

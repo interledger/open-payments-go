@@ -45,30 +45,20 @@ func createSignatureBaseString(req *http.Request, components []string, created i
             value = req.Method
         case "@target-uri":
             urlStr := req.URL.String()
-            if !strings.HasSuffix(urlStr, "/") {
+            fmt.Printf("@target-uri is %s", urlStr)
+            // Add a trailing slash only if there's no path component
+            if req.URL.Path == "" {
                 urlStr += "/"
             }
             value = urlStr
         case "authorization":
             value = req.Header.Get("Authorization")
-            if value == "" {
-                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-            }
         case "content-digest":
             value = req.Header.Get("Content-Digest")
-            if value == "" {
-                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-            }
         case "content-length":
             value = req.Header.Get("Content-Length")
-            if value == "" {
-                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-            }
         case "content-type":
             value = req.Header.Get("Content-Type")
-            if value == "" {
-                return "", fmt.Errorf("%w: %s", ErrMissingRequiredHeader, comp)
-            }
         default:
             // try to get any other component as a header.
             value = req.Header.Get(comp)
@@ -91,14 +81,14 @@ func createSignatureBaseString(req *http.Request, components []string, created i
 }
 
 func CreateSignatureHeaders(opts SignOptions) (*SignatureHeaders, error) {
-    components := []string{"@method", "@target-uri", "content-type"}
+    components := []string{"@method", "@target-uri"}
 
-    if opts.Request.Header.Get("Authorization") != "" {
+    if opts.Request.Header.Get("Authorization") != "" || opts.Request.Header.Get("authorization") != "" {
         components = append(components, "authorization")
     }
 
     if opts.Request.ContentLength > 0 {
-        components = append(components, "content-digest", "content-length")
+        components = append(components, "content-digest", "content-length", "content-type")
     }
 
     created := time.Now().Unix()

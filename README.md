@@ -14,7 +14,11 @@ From root:
 
 Or to run test from a specific package:
 
-    go test -v ./pkg/httpsignatureutils
+    go test ./pkg/httpsignatureutils
+
+To include all logs for debugging or development:
+
+    go test -v ./...
 
 ### Update OpenAPI Spec
 

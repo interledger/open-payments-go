@@ -50,12 +50,15 @@ func NewClient(opts ...ClientOption) *Client {
 }
 
 type AuthenticatedClient struct {
-	httpClient      *http.Client
-	walletAddressUrl string  /** The wallet address which the client will identify itself by */
-	privateKey      ed25519.PrivateKey
-	keyId           string
-	Grant           *GrantService
-	IncomingPayment *IncomingPaymentService
+	httpClient           *http.Client
+	preSignHook          func(req *http.Request)
+	postSignHook         func(req *http.Request)
+	walletAddressUrl     string  /** The wallet address which the client will identify itself by */
+	privateKey           ed25519.PrivateKey
+	keyId                string
+	WalletAddress        *WalletAddressService
+	Grant                *GrantService
+	IncomingPayment      *IncomingPaymentService
 }
 
 // AuthenticatedClientOption is used to configure optional behavior for the authenticated client.
@@ -69,6 +72,18 @@ type AuthenticatedClientOption func(*AuthenticatedClient)
 func WithHTTPClientAuthed(c *http.Client) AuthenticatedClientOption {
 	return func(ac *AuthenticatedClient) {
 		ac.httpClient = c
+	}
+}
+
+func WithPreSignHook(hook func(req *http.Request)) AuthenticatedClientOption {
+	return func(c *AuthenticatedClient) {
+		c.preSignHook = hook
+	}
+}
+
+func WithPostSignHook(hook func(req *http.Request)) AuthenticatedClientOption {
+	return func(c *AuthenticatedClient) {
+		c.postSignHook = hook
 	}
 }
 
@@ -94,12 +109,14 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		opt(c)
 	}
 
+	c.WalletAddress = &WalletAddressService{DoUnsigned: c.httpClient.Do}
 	c.IncomingPayment = &IncomingPaymentService{
 		DoUnsigned: httpClient.Do,
 		DoSigned:   c.DoSigned,
 	}
 	c.Grant = &GrantService{
 		DoSigned:   c.DoSigned,
+		client:     c.walletAddressUrl,
 	}
 
 	return c
@@ -114,7 +131,10 @@ func createContentDigest(body []byte) (string) {
 }
 
 func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
-	// Read and re-insert body if present
+	if c.preSignHook != nil {
+		c.preSignHook(req)
+	}
+
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -141,6 +161,10 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 
 	req.Header.Set("Signature", fmt.Sprintf("sig1=:%s:", sigHeaders.Signature))
 	req.Header.Set("Signature-Input", sigHeaders.SignatureInput)
+
+	if c.postSignHook != nil {
+		c.postSignHook(req)
+	}
 
 	return c.httpClient.Do(req)
 }
