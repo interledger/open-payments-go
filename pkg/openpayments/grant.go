@@ -24,17 +24,10 @@ type GrantService struct {
 	client              string
 }
 
-// Same as generated as.PostRequestJSONBody, but without client.
-// No way to copy type excluding the client field. This is
-// prone to drift. Must update this if spec changes.
-type GrantRequestBody struct {
-	AccessToken struct {
-		Access as.Access `json:"access"`
-	} `json:"access_token"`
-
-	Interact *as.InteractRequest `json:"interact,omitempty"`
+type GrantRequestParams struct {
+	URL         string                 // Auth server URL
+	RequestBody as.PostRequestJSONBody
 }
-
 
 // TODO: Address missing grant request type in generated types.
 // This re-constructs from the generated types therefore is prone 
@@ -53,15 +46,16 @@ func (gr *Grant) IsGranted() bool {
 	return gr.AccessToken != nil
 }
 
-func (gs *GrantService) Request(ctx context.Context, url string, requestBody as.PostRequestJSONBody) (Grant, error) {
-	requestBody.Client = gs.client
 
-	reqBodyBytes, err := json.Marshal(requestBody)
+func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
+	params.RequestBody.Client = gs.client
+
+	reqBodyBytes, err := json.Marshal(params.RequestBody)
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(reqBodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, params.URL, bytes.NewBuffer(reqBodyBytes))
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to create request: %w", err)
 	}

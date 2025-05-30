@@ -45,12 +45,13 @@ func createSignatureBaseString(req *http.Request, components []string, created i
             value = req.Method
         case "@target-uri":
             urlStr := req.URL.String()
-            fmt.Printf("@target-uri is %s", urlStr)
+            fmt.Printf("@target-uri is %s\n", urlStr)
             // Add a trailing slash only if there's no path component
             if req.URL.Path == "" {
                 urlStr += "/"
             }
             value = urlStr
+            fmt.Printf("final @target-uri is %s\n", value)
         case "authorization":
             value = req.Header.Get("Authorization")
         case "content-digest":

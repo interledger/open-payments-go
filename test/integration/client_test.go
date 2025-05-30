@@ -51,7 +51,9 @@ func TestMain(m *testing.M) {
 func TestUnauthedWalletAddressGet(t *testing.T) {
 	url := environment.ReceiverWalletAddressUrl
 	t.Logf("\nunauthedClient.WalletAddress.Get(\"%s\")\n", url)
-	walletAddress, err := unauthedClient.WalletAddress.Get(context.TODO(), url)
+	walletAddress, err := unauthedClient.WalletAddress.Get(context.TODO(), op.WalletAddressGetParams{
+		URL: url,
+	})
 
 	if err != nil {
 		t.Fatalf("Error fetching wallet address: %v\n", err)
@@ -63,7 +65,9 @@ func TestUnauthedWalletAddressGet(t *testing.T) {
 func TestUnauthedWalletAddressGetKeys(t *testing.T) {
 	url := environment.ReceiverWalletAddressUrl
 	t.Logf("\nunauthedClient.WalletAddress.GetKeys(\"%s\")\n", url)
-	walletAddressKeys, err := unauthedClient.WalletAddress.GetKeys(context.TODO(), url)
+	walletAddressKeys, err := unauthedClient.WalletAddress.GetKeys(context.TODO(), op.WalletAddressGetKeysParams{
+		URL: url,
+	})
 
 	if err != nil {
 		t.Fatalf("Error fetching wallet address keys: %v\n", err)
@@ -79,7 +83,9 @@ func TestUnauthedWalletAddressGetDIDDocument(t *testing.T) {
 	url := environment.ReceiverWalletAddressUrl
 	t.Logf("\nunauthedClient.WalletAddress.GetDIDDocument(\"%s\")\n", url)
 
-	didDocument, err := unauthedClient.WalletAddress.GetDIDDocument(context.TODO(), url)
+	didDocument, err := unauthedClient.WalletAddress.GetDIDDocument(context.TODO(), op.WalletAddressGetDIDDocumentParams{
+		URL: url,
+	})
 	if err != nil {
 		t.Fatalf("Error fetching wallet address DID document: %v\n", err)
 	}
@@ -95,7 +101,9 @@ func TestUnauthedGetPublicIncomingPayment(t *testing.T) {
 
 	t.Logf("\nunauthedClient.IncomingPayment.GetPublic(\"%s\")\n", url)
 
-	incomingPayment, err := unauthedClient.IncomingPayment.GetPublic(context.TODO(), url)
+	incomingPayment, err := unauthedClient.IncomingPayment.GetPublic(context.TODO(), op.IncomingPaymentGetPublicParams{
+		URL: url,
+	})
 	if err != nil {
 		t.Fatalf("Error fetching incoming payment: %v\n", err)
 	}
@@ -110,7 +118,9 @@ func TestGetPublicIncomingPayment(t *testing.T) {
 
 	t.Logf("\nAuthedClient.IncomingPayment.GetPublic(\"%s\")\n", url)
 
-	incomingPayment, err := authedClient.IncomingPayment.GetPublic(context.TODO(), url)
+	incomingPayment, err := authedClient.IncomingPayment.GetPublic(context.TODO(), op.IncomingPaymentGetPublicParams{
+		URL: url,
+	})
 	if err != nil {
 		t.Fatalf("Error fetching incoming payment: %v\n", err)
 	}
@@ -144,8 +154,10 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
-		environment.ReceiverOpenPaymentsAuthUrl,
-		requestBody,
+		op.GrantRequestParams{
+			URL: environment.ReceiverOpenPaymentsAuthUrl,
+			RequestBody: requestBody,
+		},
 	)
 	if err != nil {
 		t.Fatalf("Error with grant request: %v", err)
@@ -170,14 +182,15 @@ func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 
 	t.Logf("\nauthedClient.IncomingPayment.Get(\"%s\")\n", url)
 
-	incomingPayment, err := authedClient.IncomingPayment.Get(context.TODO(), url, grant.AccessToken.Value)
+	incomingPayment, err := authedClient.IncomingPayment.Get(context.TODO(), op.IncomingPaymentGetParams{
+		URL: url,
+		AccessToken: grant.AccessToken.Value,
+	})
 	if err != nil {
 		t.Fatalf("Error fetching incoming payment: %v", err)
 	}
 
 	printJSON(t, incomingPayment)
-	
-	// t.Fatal("not fully implemented")
 }
 
 
@@ -191,15 +204,16 @@ func TestListIncomingPayments(t *testing.T) {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
 	}
 
-	url := fmt.Sprintf("%s/incoming-payments/", environment.ReceiverOpenPaymentsResourceUrl)
+	url := environment.ReceiverOpenPaymentsResourceUrl
 
 	t.Logf("\nauthedClient.IncomingPayment.List(\"%s\")\n", url)
 
-	list, err := authedClient.IncomingPayment.List(context.TODO(), url, grant.AccessToken.Value, op.ListArgs{
+	list, err := authedClient.IncomingPayment.List(context.TODO(), op.IncomingPaymentListParams{
+		BaseURL: url,
+		AccessToken: grant.AccessToken.Value,
 		WalletAddress: environment.ReceiverWalletAddressUrl,
 		Pagination: op.Pagination{
-			First:  "10",
-			// Cursor: "abc123",
+			First: "10",
 		},
 	})
 	if err != nil {
@@ -207,12 +221,10 @@ func TestListIncomingPayments(t *testing.T) {
 	}
 
 	printJSON(t, list)
-
-	t.Fatal("not fully implemented")
 }
 
 func newIncomingPaymentGrant() (*op.Grant, error) {
-		incomingAccess := as.AccessIncoming{
+	incomingAccess := as.AccessIncoming{
 		Type: as.IncomingPayment,
 		Actions: []as.AccessIncomingActions{
 			as.AccessIncomingActionsCreate,
@@ -237,8 +249,10 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
-		environment.ReceiverOpenPaymentsAuthUrl,
-		requestBody,
+		op.GrantRequestParams{
+			URL: environment.ReceiverOpenPaymentsAuthUrl,
+			RequestBody: requestBody,
+		},
 	)
 
 	if err != nil {

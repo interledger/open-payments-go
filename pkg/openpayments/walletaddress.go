@@ -13,8 +13,19 @@ type WalletAddressService struct {
 	DoUnsigned RequestDoer
 }
 
-func (wa *WalletAddressService) Get(ctx context.Context, url string) (was.WalletAddress, error) {
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+type WalletAddressGetParams struct {
+	URL string // The full URL of the wallet address resource.
+}
+type WalletAddressGetKeysParams struct {
+	URL string // The full URL of the wallet address resource.
+}
+
+type WalletAddressGetDIDDocumentParams struct {
+	URL string // The full URL of the wallet address resource.
+}
+
+func (wa *WalletAddressService) Get(ctx context.Context, params WalletAddressGetParams) (was.WalletAddress, error) {
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
     if err != nil {
         return was.WalletAddress{}, err
     }
@@ -38,8 +49,8 @@ func (wa *WalletAddressService) Get(ctx context.Context, url string) (was.Wallet
     return walletAddressResponse, nil
 }
 
-func (wa *WalletAddressService) GetKeys(ctx context.Context, url string) (was.JsonWebKeySet, error) {
-    url = url + "/jwks.json"
+func (wa *WalletAddressService) GetKeys(ctx context.Context, params WalletAddressGetKeysParams) (was.JsonWebKeySet, error) {
+    url := params.URL + "/jwks.json"
     req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     
     if err != nil {
@@ -65,8 +76,8 @@ func (wa *WalletAddressService) GetKeys(ctx context.Context, url string) (was.Js
     return keyResponse, nil
 }
 
-func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, url string) (was.DidDocument, error) {
-    url = url + "/did.json"
+func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, params WalletAddressGetDIDDocumentParams) (was.DidDocument, error) {
+    url := params.URL + "/did.json"
     req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
     
     if err != nil {

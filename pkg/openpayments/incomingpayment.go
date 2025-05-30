@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
 )
@@ -25,18 +26,30 @@ type Pagination struct {
 	Cursor string
 }
 
-type ListArgs struct {
+type IncomingPaymentGetPublicParams struct {
+	URL string // The full URL of the public incoming payment resource.
+}
+
+type IncomingPaymentGetParams struct {
+	URL         string // The full URL of the incoming payment resource.
+	AccessToken string
+}
+
+type IncomingPaymentListParams struct {
+	BaseURL       string     // The base URL for the incoming payments collection.
+	AccessToken   string
 	WalletAddress string
-	Pagination Pagination
+	Pagination    Pagination
 }
 
-func (ip *IncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
-	return getPublic(ctx, ip.DoUnsigned, url)
+func (ip *IncomingPaymentService) GetPublic(ctx context.Context, params IncomingPaymentGetPublicParams) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, ip.DoUnsigned, params.URL)
 }
 
-func (pp *PublicIncomingPaymentService) GetPublic(ctx context.Context, url string) (rs.PublicIncomingPayment, error) {
-	return getPublic(ctx, pp.DoUnsigned, url)
+func (pp *PublicIncomingPaymentService) GetPublic(ctx context.Context, params IncomingPaymentGetPublicParams) (rs.PublicIncomingPayment, error) {
+	return getPublic(ctx, pp.DoUnsigned, params.URL)
 }
+
 func getPublic(ctx context.Context, doUnsigned RequestDoer, url string) (rs.PublicIncomingPayment, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -62,14 +75,13 @@ func getPublic(ctx context.Context, doUnsigned RequestDoer, url string) (rs.Publ
 	return incomingPayment, nil
 }
 
-// TODO: verify working
-func (ip *IncomingPaymentService) Get(ctx context.Context, url string, accessToken string) (rs.IncomingPaymentWithMethods, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (ip *IncomingPaymentService) Get(ctx context.Context, params IncomingPaymentGetParams) (rs.IncomingPaymentWithMethods, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
 	if err != nil {
 		return rs.IncomingPaymentWithMethods{}, err
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", accessToken))
+	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := ip.DoSigned(req)
 	if err != nil {
@@ -90,31 +102,32 @@ func (ip *IncomingPaymentService) Get(ctx context.Context, url string, accessTok
 	return incomingPayment, nil
 }
 
-// TODO: implement
-func (ip *IncomingPaymentService) List(ctx context.Context, baseUrl string, accessToken string, args ListArgs) ([]rs.IncomingPaymentWithMethods, error) {
-	return nil, nil
-
-	// Not working yet
+// TODO: protect against bad pagination args (ie not first AND last). Perhaps do in centralized
+// way after many List are implemented
+// - NewIncomingPaymentListParams that returns error with bad page args?
+func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPaymentListParams) ([]rs.IncomingPaymentWithMethods, error) {
 	query := url.Values{}
-	query.Set("wallet-address", args.WalletAddress)
-	if args.Pagination.First != "" {
-		query.Set("first", args.Pagination.First)
+	query.Set("wallet-address", params.WalletAddress)
+	if params.Pagination.First != "" {
+		query.Set("first", params.Pagination.First)
 	}
-	if args.Pagination.Last != "" {
-		query.Set("last", args.Pagination.Last)
+	if params.Pagination.Last != "" {
+		query.Set("last", params.Pagination.Last)
 	}
-	if args.Pagination.Cursor != "" {
-		query.Set("cursor", args.Pagination.Cursor)
+	if params.Pagination.Cursor != "" {
+		query.Set("cursor", params.Pagination.Cursor)
 	}
 
-	fullURL := fmt.Sprintf("%s?%s", baseUrl, query.Encode())
+	// Ensure single trailing slash on base URL
+	base := strings.TrimRight(params.BaseURL, "/")
+	fullURL := fmt.Sprintf("%s/incoming-payments?%s", base, query.Encode())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", accessToken))
+	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := ip.DoSigned(req)
 	if err != nil {
