@@ -14,38 +14,42 @@ var (
 			"happy-life-bank-backend": "4000",
 		}
 )
+// TODO: Consider offloading some of this configuration. Not sure if being smarter is worth it.
+// - ReceiverOpenPaymentsResourceUrl should be discoverable by getting wallet address url (might
+//   introduce getting wallet address url as dep for tests though)
+// - util or method on Environment to get the fully resolved urls instead of sorta redundant
+//   properties like ReceiverOpenPaymentsResourceUrl
 
-// Consider moving some more incidental stuff out (receiver wallet addres url, auth url, resource url)
-// It may be possible to simply make it discoverable through simply getting the wallet address, although
-// I also suspect the localhost urls may need more massaging
 type Environment struct {
-	Name                            string
-	ClientWalletAddressURL          string
-	PrivateKey  					          string
-	KeyId                           string
-	HttpClient                      *http.Client
-	PreSignHook                     func(req *http.Request)
-	PostSignHook                    func(req *http.Request)
-	ReceiverWalletAddressUrl        string
-	ReceiverOpenPaymentsAuthUrl     string
-	ReceiverOpenPaymentsResourceUrl string
+	Name                             string
+	ClientWalletAddressURL           string
+	PrivateKey  					           string
+	KeyId                            string
+	HttpClient                       *http.Client
+	PreSignHook                      func(req *http.Request)
+	PostSignHook                     func(req *http.Request)
+	ReceiverWalletAddressUrl         string
+	ResolvedReceiverWalletAddressUrl string
+	ReceiverOpenPaymentsAuthUrl      string
+	ReceiverOpenPaymentsResourceUrl  string
 }
 
 func NewLocalEnvironment() Environment {
 	return Environment{
-		Name:                            "local",
-		ClientWalletAddressURL:          "https://happy-life-bank-backend/accounts/pfry",
-		PrivateKey:                      "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
-		KeyId:                           "keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
-		HttpClient:                      &http.Client{
-		                                   Transport: &LocalHostHeaderRoundTripper{
-                                       rt:           http.DefaultTransport,
-                                     },},
-		PreSignHook:                     LocalPreSignHook,
-		PostSignHook:                    LocalPostSignHook,
-		ReceiverWalletAddressUrl:        "http://localhost:4000/accounts/pfry",
-    ReceiverOpenPaymentsAuthUrl:     "http://localhost:4006",
-		ReceiverOpenPaymentsResourceUrl: "http://localhost:4000",
+		Name:                             "local",
+		ClientWalletAddressURL:           "https://happy-life-bank-backend/accounts/pfry",
+		PrivateKey:                       "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
+		KeyId:                            "keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
+		HttpClient:                       &http.Client{
+		                                    Transport: &LocalHostHeaderRoundTripper{
+                                        rt:           http.DefaultTransport,
+                                      },},
+		PreSignHook:                      LocalPreSignHook,
+		PostSignHook:                     LocalPostSignHook,
+		ResolvedReceiverWalletAddressUrl: "https://happy-life-bank-backend/accounts/pfry",
+		ReceiverWalletAddressUrl:         "http://localhost:4000/accounts/pfry",
+    ReceiverOpenPaymentsAuthUrl:      "http://localhost:4006",
+		ReceiverOpenPaymentsResourceUrl:  "http://localhost:4000",
 	}
 }
 

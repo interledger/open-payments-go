@@ -197,7 +197,7 @@ func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 // TODO: 
 // - setup an incoming payment to get properly
 func TestListIncomingPayments(t *testing.T) {
-	t.Skip("Skipping: Not fully implemented")
+	// t.Skip("Skipping: Not fully implemented")
 
 	grant, err := newIncomingPaymentGrant()
 	if err != nil {
@@ -211,7 +211,7 @@ func TestListIncomingPayments(t *testing.T) {
 	list, err := authedClient.IncomingPayment.List(context.TODO(), op.IncomingPaymentListParams{
 		BaseURL: url,
 		AccessToken: grant.AccessToken.Value,
-		WalletAddress: environment.ReceiverWalletAddressUrl,
+		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
 		Pagination: op.Pagination{
 			First: "10",
 		},

@@ -42,6 +42,11 @@ type IncomingPaymentListParams struct {
 	Pagination    Pagination
 }
 
+type IncomingPaymentListResponse struct {
+	Pagination rs.PageInfo                       `json:"pagination"`
+	Result     []rs.IncomingPaymentWithMethods   `json:"result"`
+}
+
 func (ip *IncomingPaymentService) GetPublic(ctx context.Context, params IncomingPaymentGetPublicParams) (rs.PublicIncomingPayment, error) {
 	return getPublic(ctx, ip.DoUnsigned, params.URL)
 }
@@ -102,10 +107,7 @@ func (ip *IncomingPaymentService) Get(ctx context.Context, params IncomingPaymen
 	return incomingPayment, nil
 }
 
-// TODO: protect against bad pagination args (ie not first AND last). Perhaps do in centralized
-// way after many List are implemented
-// - NewIncomingPaymentListParams that returns error with bad page args?
-func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPaymentListParams) ([]rs.IncomingPaymentWithMethods, error) {
+func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPaymentListParams) (*IncomingPaymentListResponse, error) {
 	query := url.Values{}
 	query.Set("wallet-address", params.WalletAddress)
 	if params.Pagination.First != "" {
@@ -139,11 +141,11 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 		return nil, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
 	}
 
-	var incomingPayment []rs.IncomingPaymentWithMethods
-	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
+	var listResponse IncomingPaymentListResponse
+	err = json.NewDecoder(resp.Body).Decode(&listResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode response body: %s", err)
 	}
 
-	return incomingPayment, nil
+	return &listResponse, nil
 }
