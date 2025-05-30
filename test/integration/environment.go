@@ -15,8 +15,9 @@ var (
 		}
 )
 // TODO: Consider offloading some of this configuration. Not sure if being smarter is worth it.
-// - ReceiverOpenPaymentsResourceUrl should be discoverable by getting wallet address url (might
-//   introduce getting wallet address url as dep for tests though)
+// - ReceiverOpenPaymentsResourceUrl, auth url, asset code/scale should be discoverable by getting 
+//   wallet address url. Do it in TestMain as a sort of configuration step. Perhaps even make it
+//   method on Environment? Or part of Environment constructor?
 // - util or method on Environment to get the fully resolved urls instead of sorta redundant
 //   properties like ReceiverOpenPaymentsResourceUrl
 
@@ -32,6 +33,8 @@ type Environment struct {
 	ResolvedReceiverWalletAddressUrl string
 	ReceiverOpenPaymentsAuthUrl      string
 	ReceiverOpenPaymentsResourceUrl  string
+	ReceiverAssetScale 							 int
+	ReceiverAssetCode                string
 }
 
 func NewLocalEnvironment() Environment {
@@ -50,6 +53,8 @@ func NewLocalEnvironment() Environment {
 		ReceiverWalletAddressUrl:         "http://localhost:4000/accounts/pfry",
     ReceiverOpenPaymentsAuthUrl:      "http://localhost:4006",
 		ReceiverOpenPaymentsResourceUrl:  "http://localhost:4000",
+		ReceiverAssetCode:                 "USD",
+		ReceiverAssetScale: 							 2,
 	}
 }
 

@@ -1,6 +1,7 @@
 package openpayments
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -45,6 +46,12 @@ type IncomingPaymentListParams struct {
 type IncomingPaymentListResponse struct {
 	Pagination rs.PageInfo                       `json:"pagination"`
 	Result     []rs.IncomingPaymentWithMethods   `json:"result"`
+}
+
+type IncomingPaymentCreateParams struct {
+	BaseURL         string // The base URL for creating an incoming payment
+	AccessToken string
+	Payload     rs.CreateIncomingPaymentJSONBody
 }
 
 func (ip *IncomingPaymentService) GetPublic(ctx context.Context, params IncomingPaymentGetPublicParams) (rs.PublicIncomingPayment, error) {
@@ -148,4 +155,43 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 	}
 
 	return &listResponse, nil
+}
+
+// TODO: should Create handle adding /incoming-paymnets or nah? php and rust do, ts doesnt
+func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPaymentCreateParams) (rs.IncomingPaymentWithMethods, error) {
+	payloadBytes, err := json.Marshal(params.Payload)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Ensure single trailing slash on base URL
+	baseURL := strings.TrimRight(params.BaseURL, "/")
+	fullURL := fmt.Sprintf("%s/incoming-payments", baseURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, err
+	}
+
+	// TODO: do this more centrally? DoSigned when content-legnth > 0?
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
+
+	resp, err := ip.DoSigned(req)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to create incoming payment: %s", resp.Status)
+	}
+
+	var incomingPayment rs.IncomingPaymentWithMethods
+	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %s", err)
+	}
+
+	return incomingPayment, nil
 }

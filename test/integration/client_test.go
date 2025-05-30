@@ -13,8 +13,11 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
+	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
+	schemas "github.com/interledger/open-payments-go-sdk/pkg/generated/schemas"
 	op "github.com/interledger/open-payments-go-sdk/pkg/openpayments"
 )
 
@@ -221,6 +224,51 @@ func TestListIncomingPayments(t *testing.T) {
 	}
 
 	printJSON(t, list)
+}
+
+func TestCreateIncomingPayment(t *testing.T) {
+	grant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+
+	url := environment.ReceiverOpenPaymentsResourceUrl
+	t.Logf("\nauthedClient.IncomingPayment.Create(\"%s\")\n", url)
+
+	expiresAt := time.Now().Add(24 * time.Hour)
+	payload := rs.CreateIncomingPaymentJSONBody{
+		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
+		IncomingAmount: &schemas.Amount{
+			Value: "100",
+			AssetCode: environment.ReceiverAssetCode,
+			AssetScale: environment.ReceiverAssetScale,
+		},
+		ExpiresAt: &expiresAt,
+		Metadata: &map[string]interface{}{
+			"description": "Free Money!",
+		},
+	}
+
+	incomingPayment, err := authedClient.IncomingPayment.Create(context.TODO(), op.IncomingPaymentCreateParams{
+		BaseURL: url,
+		AccessToken: grant.AccessToken.Value,
+		Payload: payload,
+	})
+	if err != nil {
+		t.Fatalf("Error creating incoming payment: %v", err)
+	}
+
+	printJSON(t, incomingPayment)
+
+	if incomingPayment.Id == nil {
+		t.Error("Expected incoming payment to have an ID")
+	}
+	if incomingPayment.Completed {
+		t.Error("Expected new incoming payment to not be completed")
+	}
+	if incomingPayment.WalletAddress == nil || *incomingPayment.WalletAddress != environment.ResolvedReceiverWalletAddressUrl {
+		t.Error("Expected wallet address to match request")
+	}
 }
 
 func newIncomingPaymentGrant() (*op.Grant, error) {
