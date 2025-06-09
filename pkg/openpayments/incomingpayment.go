@@ -54,6 +54,11 @@ type IncomingPaymentCreateParams struct {
 	Payload     rs.CreateIncomingPaymentJSONBody
 }
 
+type IncomingPaymentCompleteParams struct {
+	URL         string // The incoming payment url
+	AccessToken string
+}
+
 func (ip *IncomingPaymentService) GetPublic(ctx context.Context, params IncomingPaymentGetPublicParams) (rs.PublicIncomingPayment, error) {
 	return getPublic(ctx, ip.DoUnsigned, params.URL)
 }
@@ -173,7 +178,7 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 		return rs.IncomingPaymentWithMethods{}, err
 	}
 
-	// TODO: do this more centrally? DoSigned when content-legnth > 0?
+	// TODO: do this more centrally? in DoSigned when content-legnth > 0?
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
@@ -195,3 +200,37 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 
 	return incomingPayment, nil
 }
+
+func (ip *IncomingPaymentService) Complete(ctx context.Context, params IncomingPaymentCompleteParams) (rs.IncomingPaymentWithMethods, error) {
+	fullURL := fmt.Sprintf("%s/complete", strings.TrimRight(params.URL, "/"))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, nil)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
+
+	resp, err := ip.DoSigned(req)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to complete incoming payment: %s", resp.Status)
+	}
+
+	// TODO: add the validation like TS? php/rust. Not sure if we should on principle.
+	// https://github.com/interledger/open-payments/blob/main/packages/open-payments/src/client/incoming-payment.ts#L217
+	// TS client errors if returned payment is neither complete or if amounts are wrong.
+
+	var incomingPayment rs.IncomingPaymentWithMethods
+	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %w", err)
+	}
+
+	return incomingPayment, nil
+}
+

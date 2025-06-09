@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	environment    Environment
+	environment    *Environment
 	unauthedClient *op.Client
 	authedClient *op.AuthenticatedClient
 )
@@ -97,10 +97,20 @@ func TestUnauthedWalletAddressGetDIDDocument(t *testing.T) {
 }
 
 
-// TODO: setup an incoming payment to get properly
 func TestUnauthedGetPublicIncomingPayment(t *testing.T) {
-	incomingPaymentId := "67684fda-f33d-4ce0-aaae-38376b40311c"
-	url := fmt.Sprintf("http://localhost:4000/incoming-payments/%s", incomingPaymentId)
+	grant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	newIncomingPayment, err := newIncomingPayment(grant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+
+	url, err := environment.RewriteURLIfNeeded(*newIncomingPayment.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from incoming payment: %v", err)
+	}
 
 	t.Logf("\nunauthedClient.IncomingPayment.GetPublic(\"%s\")\n", url)
 
@@ -114,10 +124,23 @@ func TestUnauthedGetPublicIncomingPayment(t *testing.T) {
 	printJSON(t, incomingPayment)
 }
 
-// TODO: setup an incoming payment to get properly
 func TestGetPublicIncomingPayment(t *testing.T) {
-	incomingPaymentId := "67684fda-f33d-4ce0-aaae-38376b40311c"
-	url := fmt.Sprintf("http://localhost:4000/incoming-payments/%s", incomingPaymentId)
+	grant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	newIncomingPayment, err := newIncomingPayment(grant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+
+	url := *newIncomingPayment.Id
+	if environment.RewriteURL != nil {
+		url, err = environment.RewriteURL(url)
+		if err != nil {
+			t.Fatalf("Could not rewrite URL from incoming payment: %v", err)
+		}
+	}
 
 	t.Logf("\nAuthedClient.IncomingPayment.GetPublic(\"%s\")\n", url)
 
@@ -169,19 +192,18 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 	printJSON(t, grant)
 }
 
-
-// TODO: 
-// - setup an incoming payment to get properly
 func TestAuthenticatedGetIncomingPayment(t *testing.T) {
-	// t.Skip("Skipping: Not fully implemented")
-
 	grant, err := newIncomingPaymentGrant()
 	if err != nil {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
 	}
 
-	incomingPaymentId := "67684fda-f33d-4ce0-aaae-38376b40311c"
-	url := fmt.Sprintf("%s/incoming-payments/%s", environment.ReceiverOpenPaymentsResourceUrl, incomingPaymentId)
+	newIncomingPayment, err := newIncomingPayment(grant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+
+	url := *newIncomingPayment.Id
 
 	t.Logf("\nauthedClient.IncomingPayment.Get(\"%s\")\n", url)
 
@@ -196,15 +218,14 @@ func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 	printJSON(t, incomingPayment)
 }
 
-
-// TODO: 
-// - setup an incoming payment to get properly
 func TestListIncomingPayments(t *testing.T) {
-	// t.Skip("Skipping: Not fully implemented")
-
 	grant, err := newIncomingPaymentGrant()
 	if err != nil {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	_, err = newIncomingPayment(grant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
 	}
 
 	url := environment.ReceiverOpenPaymentsResourceUrl
@@ -271,6 +292,45 @@ func TestCreateIncomingPayment(t *testing.T) {
 	}
 }
 
+func TestCompleteIncomingPayment(t *testing.T) {
+	// Setup
+	grant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	incomingPayment, err := newIncomingPayment(grant)
+	if err != nil {
+		t.Fatalf("Error creating incoming payment: %v", err)
+	}
+	if incomingPayment.Completed {
+		t.Fatalf("Expected new incoming payment to not be completed")
+	}
+
+	// Complete the incoming payment
+	t.Logf("\nauthedClient.IncomingPayment.Complete(\"%s\")\n", *incomingPayment.Id)
+
+	completedPayment, err := authedClient.IncomingPayment.Complete(context.TODO(), op.IncomingPaymentCompleteParams{
+		URL: *incomingPayment.Id,
+		AccessToken: grant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error completing incoming payment: %v", err)
+	}
+
+	printJSON(t, completedPayment)
+
+	// Verify the payment is now completed
+	if !completedPayment.Completed {
+		t.Error("Expected completed incoming payment to be marked as completed")
+	}
+	if completedPayment.Id == nil || *completedPayment.Id != *incomingPayment.Id {
+		t.Error("Expected completed payment ID to match original payment ID")
+	}
+}
+
+// ==============
+//  Test Helpers
+// ==============
 func newIncomingPaymentGrant() (*op.Grant, error) {
 	incomingAccess := as.AccessIncoming{
 		Type: as.IncomingPayment,
@@ -308,6 +368,31 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 	}
 
 	return &grant, nil
+}
+
+func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error) {
+	url := environment.ReceiverOpenPaymentsResourceUrl
+	expiresAt := time.Now().Add(24 * time.Hour)
+	payload := rs.CreateIncomingPaymentJSONBody{
+		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
+		IncomingAmount: &schemas.Amount{
+			Value: "100",
+			AssetCode: environment.ReceiverAssetCode,
+			AssetScale: environment.ReceiverAssetScale,
+		},
+		ExpiresAt: &expiresAt,
+	}
+
+	incomingPayment, err := authedClient.IncomingPayment.Create(context.TODO(), op.IncomingPaymentCreateParams{
+		BaseURL: url,
+		AccessToken: grant.AccessToken.Value,
+		Payload: payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Error creating incoming payment: %w", err)
+	}
+
+	return &incomingPayment, nil
 }
 
 func printJSON(t *testing.T, data interface{}) {
