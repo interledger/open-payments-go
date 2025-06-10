@@ -18,14 +18,18 @@ type Environment struct {
 	PrivateKey  					           string
 	KeyId                            string
 	HttpClient                       *http.Client
-	PreSignHook                      func(req *http.Request)
-	PostSignHook                     func(req *http.Request)
 	ReceiverWalletAddressUrl         string
 	ResolvedReceiverWalletAddressUrl string
 	ReceiverOpenPaymentsAuthUrl      string
 	ReceiverOpenPaymentsResourceUrl  string
 	ReceiverAssetScale 							 int
 	ReceiverAssetCode                string
+	SenderOpenPaymentsAuthUrl        string
+	SenderWalletAddressUrl           string
+	ResolvedSenderWalletAddressUrl   string
+	SenderOpenPaymentsResourceUrl    string
+	PreSignHook                      func(req *http.Request)
+	PostSignHook                     func(req *http.Request)
 	RewriteURL func(string) (string, error) // optional, used only in local
 }
 
@@ -53,9 +57,13 @@ func NewLocalEnvironment() *Environment {
 		ReceiverOpenPaymentsResourceUrl:  "http://localhost:4000",
 		ReceiverAssetCode:                "USD",
 		ReceiverAssetScale:               2,
-		PreSignHook: MakeLocalPreSignHook(localPortsToHost),
-		PostSignHook: MakeLocalPostSignHook(localHostsToPort),
-		RewriteURL: MakeLocalURLRewriter(localHostsToPort),
+		SenderOpenPaymentsAuthUrl:        "http://localhost:3006",
+		SenderOpenPaymentsResourceUrl:    "http://localhost:3000",
+		SenderWalletAddressUrl:           "http://localhost:3000/accounts/gfranklin",
+		ResolvedSenderWalletAddressUrl:   "https://cloud-nine-wallet-backend/accounts/gfranklin",
+		PreSignHook: 											MakeLocalPreSignHook(localPortsToHost),
+		PostSignHook: 										MakeLocalPostSignHook(localHostsToPort),
+		RewriteURL: 											MakeLocalURLRewriter(localHostsToPort),
 	}
 
 	return &env

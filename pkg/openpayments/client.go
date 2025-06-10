@@ -59,6 +59,7 @@ type AuthenticatedClient struct {
 	WalletAddress        *WalletAddressService
 	Grant                *GrantService
 	IncomingPayment      *IncomingPaymentService
+	Quote                *QuoteService
 }
 
 // AuthenticatedClientOption is used to configure optional behavior for the authenticated client.
@@ -117,6 +118,9 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 	c.Grant = &GrantService{
 		DoSigned:   c.DoSigned,
 		client:     c.walletAddressUrl,
+	}
+	c.Quote = &QuoteService{
+		DoSigned:   c.DoSigned,
 	}
 
 	return c

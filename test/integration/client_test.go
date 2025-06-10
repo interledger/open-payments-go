@@ -192,6 +192,28 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 	printJSON(t, grant)
 }
 
+func TestGrantCancel(t *testing.T){
+	grant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error creating incoming payment grant: %v", err)
+	}
+
+	err = authedClient.Grant.Cancel(context.TODO(), op.GrantCancelParams{URL: grant.Continue.Uri, AccessToken: grant.Continue.AccessToken.Value})
+  if err != nil {
+		t.Errorf("Error canceling grant: %v", err)
+	}
+
+	err = authedClient.Grant.Cancel(context.TODO(), op.GrantCancelParams{URL: grant.Continue.Uri, AccessToken: grant.Continue.AccessToken.Value})
+
+	if err == nil {
+		t.Errorf("Grant cancellation did not error when expected")
+	}
+}
+
+func TestGrantContinue(t *testing.T){
+	t.Skip("Not implemented")
+}
+
 func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 	grant, err := newIncomingPaymentGrant()
 	if err != nil {
@@ -325,6 +347,115 @@ func TestCompleteIncomingPayment(t *testing.T) {
 	}
 	if completedPayment.Id == nil || *completedPayment.Id != *incomingPayment.Id {
 		t.Error("Expected completed payment ID to match original payment ID")
+	}
+}
+
+func TestCreateAndGetQuote(t *testing.T) {
+	// Setup
+	incomingPaymentGrant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	newIncomingPayment, err := newIncomingPayment(incomingPaymentGrant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+	if newIncomingPayment.Id == nil {
+		t.Fatal("New incoming payment ID is nil")
+	}
+
+	quoteAccess := as.AccessQuote{
+		Type: as.Quote,
+		Actions: []as.AccessQuoteActions{
+			// TODO: address how these arent scoped to quotes?
+			// anti-corruption layer for the generated types?
+			as.Create,
+			as.Read,
+		},
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
+		t.Fatalf("Error creating AccessItem for quote: %v", err)
+	}
+	accessToken := struct {
+		Access as.Access `json:"access"`
+	}{
+		Access: []as.AccessItem{accessItem},
+	}
+	quoteGrantRequestBody := as.PostRequestJSONBody{
+		AccessToken: accessToken,
+	}
+
+	quoteGrant, err := authedClient.Grant.Request(
+		context.TODO(),
+		op.GrantRequestParams{
+			URL:         environment.SenderOpenPaymentsAuthUrl,
+			RequestBody: quoteGrantRequestBody,
+		},
+	)
+
+	if err != nil {
+		t.Fatalf("Error requesting grant for quote: %v", err)
+	}
+	if quoteGrant.AccessToken == nil || quoteGrant.AccessToken.Value == "" {
+		t.Fatalf("Expected quote grant to have an access token")
+	}
+
+	// Create the Quote
+	createQuotePayload := rs.CreateQuoteJSONBody0{
+		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
+		Receiver:      *newIncomingPayment.Id,
+		Method:        "ilp",
+	}
+
+	t.Logf("\nauthedClient.Quote.Create(\"%s\", %v)\n", environment.SenderOpenPaymentsResourceUrl, createQuotePayload)
+
+	newQuote, err := authedClient.Quote.Create(context.TODO(), op.QuoteCreateParams{
+		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
+		AccessToken: quoteGrant.AccessToken.Value,
+		Payload:     createQuotePayload,
+	})
+	if err != nil {
+		t.Fatalf("Error creating quote: %v", err)
+	}
+
+	printJSON(t, newQuote)
+
+	if newQuote.Id == nil {
+		t.Error("Expected new quote to have an ID")
+	}
+	if newQuote.WalletAddress == nil || *newQuote.WalletAddress != environment.ResolvedSenderWalletAddressUrl {
+		t.Error("Expected quote wallet address to match sender's wallet address")
+	}
+	if newQuote.Receiver != *newIncomingPayment.Id {
+		t.Errorf("Expected quote receiver to be %s, got %s", *newIncomingPayment.Id, newQuote.Receiver)
+	}
+
+	// Get the created Quote
+	quoteURL, err := environment.RewriteURLIfNeeded(*newQuote.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from quote: %v", err)
+	}
+	t.Logf("\nauthedClient.Quote.Get(\"%s\")\n", quoteURL)
+
+	retrievedQuote, err := authedClient.Quote.Get(context.TODO(), op.QuoteGetParams{
+		URL:         quoteURL,
+		AccessToken: quoteGrant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error fetching quote: %v", err)
+	}
+
+	printJSON(t, retrievedQuote)
+
+	if retrievedQuote.Id == nil || *retrievedQuote.Id != *newQuote.Id {
+		t.Errorf("Expected retrieved quote ID to be %s, got %s", *newQuote.Id, *retrievedQuote.Id)
+	}
+	if retrievedQuote.DebitAmount == (schemas.Amount{}) {
+		t.Error("Expected retrieved quote to have a debitAmount")
+	}
+	if retrievedQuote.ReceiveAmount == (schemas.Amount{}) {
+		t.Error("Expected retrieved quote to have a receiveAmount")
 	}
 }
 
