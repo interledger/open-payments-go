@@ -2,9 +2,6 @@ package integration
 
 /*
 Integration tests for the Open Payments SDK. Requires a running instance of Rafiki.
-
-The tests using the authenticated client unless the test names specifically denote
-otherwise (e.g. TestUnauthedWalletAddressGet).
 */
 
 import (
@@ -203,8 +200,8 @@ func TestGrantCancel(t *testing.T){
 		t.Errorf("Error canceling grant: %v", err)
 	}
 
+	// second cancel should error
 	err = authedClient.Grant.Cancel(context.TODO(), op.GrantCancelParams{URL: grant.Continue.Uri, AccessToken: grant.Continue.AccessToken.Value})
-
 	if err == nil {
 		t.Errorf("Grant cancellation did not error when expected")
 	}
@@ -456,6 +453,63 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}
 	if retrievedQuote.ReceiveAmount == (schemas.Amount{}) {
 		t.Error("Expected retrieved quote to have a receiveAmount")
+	}
+}
+
+func TestRotateToken(t *testing.T) {
+	newIncomingPaymentGrant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	rotatedToken, err := authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
+		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Errorf("Error rotating token: %v", err)
+	}
+	printJSON(t, rotatedToken)
+
+	// can rotate new token
+	_, err = authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
+		URL: rotatedToken.Manage,
+		AccessToken: rotatedToken.Value,
+	})
+	if err != nil {
+		t.Errorf("Error rotating token: %v", err)
+	}
+	printJSON(t, rotatedToken)
+
+	// cannot rotate revoked token
+	_, err = authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
+		URL: rotatedToken.Manage,
+		AccessToken: rotatedToken.Value,
+	})
+	if err == nil {
+		t.Errorf("Expected error rotating token")
+	}
+}
+
+func TestRevokeToken(t *testing.T) {
+	newIncomingPaymentGrant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	err = authedClient.Token.Revoke(context.TODO(), op.TokenRevokeParams{
+		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Errorf("Error revoking token: %v", err)
+	}
+
+	// second revoke should error
+	err = authedClient.Token.Revoke(context.TODO(), op.TokenRevokeParams{
+		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
+	})
+	if err == nil {
+		t.Errorf("Expected error revoking token")
 	}
 }
 
