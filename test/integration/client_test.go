@@ -456,11 +456,40 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}
 }
 
+// TODO: implement. needs consent interaction. how to test?
+// maybe chromedp?
+// or maybe keep it very manual with input from cli to confirm when consent given so that
+// it can proceed?
+func TestCreateOutgoingPayment(t *testing.T) {
+	t.Skip("Not implemented")
+
+	// Setup
+	incomingPaymentGrant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	newIncomingPayment, err := newIncomingPayment(incomingPaymentGrant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+	_, err = newQuote(newIncomingPayment)
+	if err != nil {
+		t.Fatalf("Error creating quote: %v", err)
+	}
+
+	// payload := rs.CreateOutgoingPaymentJSONRequestBody{}
+
+}
+
 func TestRotateToken(t *testing.T) {
 	newIncomingPaymentGrant, err := newIncomingPaymentGrant()
 	if err != nil {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
 	}
+	
+	originalValue := newIncomingPaymentGrant.AccessToken.Value
+	originalManage := newIncomingPaymentGrant.AccessToken.Manage
+
 	rotatedToken, err := authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
 		URL: newIncomingPaymentGrant.AccessToken.Manage,
 		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
@@ -469,6 +498,13 @@ func TestRotateToken(t *testing.T) {
 		t.Errorf("Error rotating token: %v", err)
 	}
 	printJSON(t, rotatedToken)
+
+	if rotatedToken.Value == originalValue {
+		t.Error("Rotated token value should be different from original")
+	}
+	if rotatedToken.Manage == originalManage {
+		t.Error("Rotated token manage URL should be different from original")
+	}
 
 	// can rotate new token
 	_, err = authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
@@ -578,6 +614,61 @@ func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error)
 	}
 
 	return &incomingPayment, nil
+}
+
+func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error) {
+	quoteAccess := as.AccessQuote{
+		Type: as.Quote,
+		Actions: []as.AccessQuoteActions{
+			// TODO: address how these arent scoped to quotes?
+			// anti-corruption layer for the generated types?
+			as.Create,
+			as.Read,
+		},
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
+		return nil, fmt.Errorf("error creating AccessItem for quote: %w", err)
+	}
+	accessToken := struct {
+		Access as.Access `json:"access"`
+	}{
+		Access: []as.AccessItem{accessItem},
+	}
+	quoteGrantRequestBody := as.PostRequestJSONBody{
+		AccessToken: accessToken,
+	}
+
+	quoteGrant, err := authedClient.Grant.Request(
+		context.TODO(),
+		op.GrantRequestParams{
+			URL:         environment.SenderOpenPaymentsAuthUrl,
+			RequestBody: quoteGrantRequestBody,
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("error requesting grant for quote: %w", err)
+	}
+
+	// Create the Quote
+	createQuotePayload := rs.CreateQuoteJSONBody0{
+		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
+		Receiver:      *incomingPayment.Id,
+		Method:        "ilp",
+	}
+
+
+	quote, err := authedClient.Quote.Create(context.TODO(), op.QuoteCreateParams{
+		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
+		AccessToken: quoteGrant.AccessToken.Value,
+		Payload:     createQuotePayload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating quote: %w", err)
+	}
+
+	return &quote, nil
 }
 
 func printJSON(t *testing.T, data interface{}) {
