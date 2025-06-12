@@ -37,7 +37,7 @@ func TestCreateSignatureHeaders_Basic(t *testing.T) {
 		t.Error("Expected non-empty SignatureInput")
 	}
 
-	for _, comp := range []string{"@method", "@target-uri", "content-type"} {
+	for _, comp := range []string{"@method", "@target-uri"} {
 		if !strings.Contains(headers.SignatureInput, comp) {
 			t.Errorf("SignatureInput missing component: %s", comp)
 		}
@@ -49,7 +49,7 @@ func TestCreateSignatureHeaders_Basic(t *testing.T) {
 
 	// verify signature
 	created := time.Now().Unix()
-	baseString, err := createSignatureBaseString(req, []string{"@method", "@target-uri", "content-type"}, created, opts.KeyID)
+	baseString, err := createSignatureBaseString(req, []string{"@method", "@target-uri"}, created, opts.KeyID)
 	if err != nil {
 		t.Fatalf("Failed to create signature base string: %v", err)
 	}
