@@ -61,8 +61,7 @@ func (ip *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (r
 	if err != nil {
 		return rs.Quote{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
-
-	// Ensure single trailing slash on base URL and append "/quotes"
+	
 	baseURL := strings.TrimRight(params.BaseURL, "/")
 	fullURL := fmt.Sprintf("%s/quotes", baseURL)
 

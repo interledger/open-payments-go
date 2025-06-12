@@ -5,12 +5,9 @@ import (
 	"net/url"
 )
 
-// TODO: Consider offloading some of this configuration. Not sure if being smarter is worth it.
-// - ReceiverOpenPaymentsResourceUrl, auth url, asset code/scale should be discoverable by getting
-//   wallet address url. Do it in TestMain as a sort of configuration step. Perhaps even make it
-//   method on Environment? Or part of Environment constructor?
-// - util or method on Environment to get the fully resolved urls instead of sorta redundant
-//   properties like ReceiverOpenPaymentsResourceUrl
+// TODO: Consider offloading some of this configuration to using URLs (auth server url, resource
+// server url, etc.) returned by wallet address get, etc. in test. May be smarter but not as easy
+// to manage as this static configuration .. ?
 
 type Environment struct {
 	Name                             string

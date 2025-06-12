@@ -12,6 +12,8 @@ From root:
 
     go test ./...
 
+Note, this runs all tests including integration, which requires the Rafiki localenv.
+
 Or to run test from a specific package:
 
     go test ./pkg/httpsignatureutils

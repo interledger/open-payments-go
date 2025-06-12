@@ -132,7 +132,6 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 		query.Set("cursor", params.Pagination.Cursor)
 	}
 
-	// Ensure single trailing slash on base URL
 	base := strings.TrimRight(params.BaseURL, "/")
 	fullURL := fmt.Sprintf("%s/incoming-payments?%s", base, query.Encode())
 
@@ -169,7 +168,6 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Ensure single trailing slash on base URL
 	baseURL := strings.TrimRight(params.BaseURL, "/")
 	fullURL := fmt.Sprintf("%s/incoming-payments", baseURL)
 
