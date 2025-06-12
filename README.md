@@ -14,6 +14,10 @@ From root:
 
 Note, this runs all tests including integration, which requires the Rafiki localenv.
 
+To just run the integration tests:
+
+    go test ./test/integration
+
 Or to run test from a specific package:
 
     go test ./pkg/httpsignatureutils
@@ -45,9 +49,3 @@ Run:
 > - `resource-server.yaml`: remove refs and inline `optional-signature` and `optional-signature-input` in `signature` and `signature-input`.
 > - `wallet-address-server`: remove `additionalProperties: true` `from WalletAddress`
 >   - `additionalProperties` are true by default so behavior doesnt change. More details on on how `deepmap/oapi-codegen` handles this field: https://github.com/deepmap/oapi-codegen?tab=readme-ov-file#additional-properties-in-type-definitions
-
-## Run against local Rafiki:
-
-The `cmd/cli/main.go` script uses the client to make requests to a local rafiki instance to test the client:
-
-    go run cmd/cli/main.go
