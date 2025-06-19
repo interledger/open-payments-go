@@ -20,7 +20,7 @@ To just run the integration tests:
 
 Or to run test from a specific package:
 
-    go test ./pkg/httpsignatureutils
+    go test ./httpsignatureutils
 
 To include all logs for debugging or development:
 
@@ -34,7 +34,7 @@ When you want to pull in new open payments openapi specs, use `fetch_spec.sh` sc
 
 ### Generate OpenAPI types
 
-After pulling in new open payments openapi specs, use `generate_types.sh` to generate all the open api types from the spec files. Type generation is handled by `deepmap/oapi-codegen` and outputs to the `pkg/generated` directory.
+After pulling in new open payments openapi specs, use `generate_types.sh` to generate all the open api types from the spec files. Type generation is handled by `deepmap/oapi-codegen` and outputs to the `generated` directory.
 
 Run:
 

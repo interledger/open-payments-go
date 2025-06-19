@@ -12,14 +12,14 @@ import (
 type Environment struct {
 	Name                             string
 	ClientWalletAddressURL           string
-	PrivateKey  					           string
+	PrivateKey                       string
 	KeyId                            string
 	HttpClient                       *http.Client
 	ReceiverWalletAddressUrl         string
 	ResolvedReceiverWalletAddressUrl string
 	ReceiverOpenPaymentsAuthUrl      string
 	ReceiverOpenPaymentsResourceUrl  string
-	ReceiverAssetScale 							 int
+	ReceiverAssetScale               int
 	ReceiverAssetCode                string
 	SenderOpenPaymentsAuthUrl        string
 	SenderWalletAddressUrl           string
@@ -27,7 +27,7 @@ type Environment struct {
 	SenderOpenPaymentsResourceUrl    string
 	PreSignHook                      func(req *http.Request)
 	PostSignHook                     func(req *http.Request)
-	RewriteURL func(string) (string, error) // optional, used only in local
+	RewriteURL                       func(string) (string, error) // optional, used only in local
 }
 
 func NewLocalEnvironment() *Environment {
@@ -41,13 +41,13 @@ func NewLocalEnvironment() *Environment {
 	}
 
 	env := Environment{
-		Name:                             "local",
-		ClientWalletAddressURL:           "https://happy-life-bank-backend/accounts/pfry",
-		PrivateKey:                       "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
-		KeyId:                            "keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
-		HttpClient:                       &http.Client{
-																				Transport: MakeLocalHostHeaderRoundTripper(localPortsToHost),
-																			},
+		Name:                   "local",
+		ClientWalletAddressURL: "https://happy-life-bank-backend/accounts/pfry",
+		PrivateKey:             "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=",
+		KeyId:                  "keyid-97a3a431-8ee1-48fc-ac85-70e2f5eba8e5",
+		HttpClient: &http.Client{
+			Transport: MakeLocalHostHeaderRoundTripper(localPortsToHost),
+		},
 		ResolvedReceiverWalletAddressUrl: "https://happy-life-bank-backend/accounts/pfry",
 		ReceiverWalletAddressUrl:         "http://localhost:4000/accounts/pfry",
 		ReceiverOpenPaymentsAuthUrl:      "http://localhost:4006",
@@ -58,9 +58,9 @@ func NewLocalEnvironment() *Environment {
 		SenderOpenPaymentsResourceUrl:    "http://localhost:3000",
 		SenderWalletAddressUrl:           "http://localhost:3000/accounts/gfranklin",
 		ResolvedSenderWalletAddressUrl:   "https://cloud-nine-wallet-backend/accounts/gfranklin",
-		PreSignHook: 											MakeLocalPreSignHook(localPortsToHost),
-		PostSignHook: 										MakeLocalPostSignHook(localHostsToPort),
-		RewriteURL: 											MakeLocalURLRewriter(localHostsToPort),
+		PreSignHook:                      MakeLocalPreSignHook(localPortsToHost),
+		PostSignHook:                     MakeLocalPostSignHook(localHostsToPort),
+		RewriteURL:                       MakeLocalURLRewriter(localHostsToPort),
 	}
 
 	return &env
@@ -85,8 +85,8 @@ func NewLocalEnvironment() *Environment {
 // HostHeaderRoundTripper modifies Host header to match remote services while using localhost.
 // RoundTripper will modify all requests after DoSigned/DoUnsigned
 type LocalHostHeaderRoundTripper struct {
-	rt            http.RoundTripper
-	portsToHost   map[string]string
+	rt          http.RoundTripper
+	portsToHost map[string]string
 }
 
 func (h *LocalHostHeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -127,10 +127,13 @@ func MakeLocalPostSignHook(hostsToPort map[string]string) func(req *http.Request
 }
 
 // ResolveLocalURL takes a URL and replaces known backend hostnames with localhost and their corresponding ports.
-// for example: 
-// 		"http://happy-life-bank-backend/incoming-payments/f6eabfa0-3a94-4ae6-a635-bf43f9af3aee"
-// goes to 
-//		"http://localhost:4000/incoming-payments/f6eabfa0-3a94-4ae6-a635-bf43f9af3aee"
+// for example:
+//
+//	"http://happy-life-bank-backend/incoming-payments/f6eabfa0-3a94-4ae6-a635-bf43f9af3aee"
+//
+// goes to
+//
+//	"http://localhost:4000/incoming-payments/f6eabfa0-3a94-4ae6-a635-bf43f9af3aee"
 func MakeLocalURLRewriter(hostsToPort map[string]string) func(string) (string, error) {
 	return func(raw string) (string, error) {
 		parsed, err := url.Parse(raw)

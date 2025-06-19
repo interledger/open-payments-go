@@ -12,23 +12,23 @@ import (
 	"testing"
 	"time"
 
-	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
-	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
-	schemas "github.com/interledger/open-payments-go-sdk/pkg/generated/schemas"
-	op "github.com/interledger/open-payments-go-sdk/pkg/openpayments"
+	op "github.com/interledger/open-payments-go-sdk"
+	as "github.com/interledger/open-payments-go-sdk/generated/authserver"
+	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
+	schemas "github.com/interledger/open-payments-go-sdk/generated/schemas"
 )
 
 var (
 	environment    *Environment
 	unauthedClient *op.Client
-	authedClient *op.AuthenticatedClient
+	authedClient   *op.AuthenticatedClient
 )
 
 func TestMain(m *testing.M) {
-	// TODO: switch on some ENV var/cli arg when NewTestnetEnvironment is 
+	// TODO: switch on some ENV var/cli arg when NewTestnetEnvironment is
 	// implemented to get correct environment
 	environment = NewLocalEnvironment()
-	
+
 	// TODO: have NewLocalEnvironment() just return the initialized clients?
 	unauthedClient = op.NewClient(op.WithHTTPClientUnauthed(environment.HttpClient))
 	authedClient = op.NewAuthenticatedClient(
@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 
 	os.Exit(m.Run())
 }
-
 
 // TODO: test wa methods on authed client.
 // - could combine with current unauthed (just TestWalletAddressget??) but
@@ -92,7 +91,6 @@ func TestUnauthedWalletAddressGetDIDDocument(t *testing.T) {
 
 	printJSON(t, didDocument)
 }
-
 
 func TestUnauthedGetPublicIncomingPayment(t *testing.T) {
 	grant, err := newIncomingPaymentGrant()
@@ -178,7 +176,7 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
 		op.GrantRequestParams{
-			URL: environment.ReceiverOpenPaymentsAuthUrl,
+			URL:         environment.ReceiverOpenPaymentsAuthUrl,
 			RequestBody: requestBody,
 		},
 	)
@@ -189,14 +187,14 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 	printJSON(t, grant)
 }
 
-func TestGrantCancel(t *testing.T){
+func TestGrantCancel(t *testing.T) {
 	grant, err := newIncomingPaymentGrant()
 	if err != nil {
 		t.Fatalf("Error creating incoming payment grant: %v", err)
 	}
 
 	err = authedClient.Grant.Cancel(context.TODO(), op.GrantCancelParams{URL: grant.Continue.Uri, AccessToken: grant.Continue.AccessToken.Value})
-  if err != nil {
+	if err != nil {
 		t.Errorf("Error canceling grant: %v", err)
 	}
 
@@ -207,7 +205,7 @@ func TestGrantCancel(t *testing.T){
 	}
 }
 
-func TestGrantContinue(t *testing.T){
+func TestGrantContinue(t *testing.T) {
 	t.Skip("Not implemented")
 }
 
@@ -227,7 +225,7 @@ func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 	t.Logf("\nauthedClient.IncomingPayment.Get(\"%s\")\n", url)
 
 	incomingPayment, err := authedClient.IncomingPayment.Get(context.TODO(), op.IncomingPaymentGetParams{
-		URL: url,
+		URL:         url,
 		AccessToken: grant.AccessToken.Value,
 	})
 	if err != nil {
@@ -252,8 +250,8 @@ func TestListIncomingPayments(t *testing.T) {
 	t.Logf("\nauthedClient.IncomingPayment.List(\"%s\")\n", url)
 
 	list, err := authedClient.IncomingPayment.List(context.TODO(), op.IncomingPaymentListParams{
-		BaseURL: url,
-		AccessToken: grant.AccessToken.Value,
+		BaseURL:       url,
+		AccessToken:   grant.AccessToken.Value,
 		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
 		Pagination: op.Pagination{
 			First: "10",
@@ -279,8 +277,8 @@ func TestCreateIncomingPayment(t *testing.T) {
 	payload := rs.CreateIncomingPaymentJSONBody{
 		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &schemas.Amount{
-			Value: "100",
-			AssetCode: environment.ReceiverAssetCode,
+			Value:      "100",
+			AssetCode:  environment.ReceiverAssetCode,
 			AssetScale: environment.ReceiverAssetScale,
 		},
 		ExpiresAt: &expiresAt,
@@ -290,9 +288,9 @@ func TestCreateIncomingPayment(t *testing.T) {
 	}
 
 	incomingPayment, err := authedClient.IncomingPayment.Create(context.TODO(), op.IncomingPaymentCreateParams{
-		BaseURL: url,
+		BaseURL:     url,
 		AccessToken: grant.AccessToken.Value,
-		Payload: payload,
+		Payload:     payload,
 	})
 	if err != nil {
 		t.Fatalf("Error creating incoming payment: %v", err)
@@ -329,7 +327,7 @@ func TestCompleteIncomingPayment(t *testing.T) {
 	t.Logf("\nauthedClient.IncomingPayment.Complete(\"%s\")\n", *incomingPayment.Id)
 
 	completedPayment, err := authedClient.IncomingPayment.Complete(context.TODO(), op.IncomingPaymentCompleteParams{
-		URL: *incomingPayment.Id,
+		URL:         *incomingPayment.Id,
 		AccessToken: grant.AccessToken.Value,
 	})
 	if err != nil {
@@ -486,12 +484,12 @@ func TestRotateToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
 	}
-	
+
 	originalValue := newIncomingPaymentGrant.AccessToken.Value
 	originalManage := newIncomingPaymentGrant.AccessToken.Manage
 
 	rotatedToken, err := authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
-		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		URL:         newIncomingPaymentGrant.AccessToken.Manage,
 		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
 	})
 	if err != nil {
@@ -508,7 +506,7 @@ func TestRotateToken(t *testing.T) {
 
 	// can rotate new token
 	_, err = authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
-		URL: rotatedToken.Manage,
+		URL:         rotatedToken.Manage,
 		AccessToken: rotatedToken.Value,
 	})
 	if err != nil {
@@ -518,7 +516,7 @@ func TestRotateToken(t *testing.T) {
 
 	// cannot rotate revoked token
 	_, err = authedClient.Token.Rotate(context.TODO(), op.TokenRotateParams{
-		URL: rotatedToken.Manage,
+		URL:         rotatedToken.Manage,
 		AccessToken: rotatedToken.Value,
 	})
 	if err == nil {
@@ -532,7 +530,7 @@ func TestRevokeToken(t *testing.T) {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
 	}
 	err = authedClient.Token.Revoke(context.TODO(), op.TokenRevokeParams{
-		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		URL:         newIncomingPaymentGrant.AccessToken.Manage,
 		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
 	})
 	if err != nil {
@@ -541,7 +539,7 @@ func TestRevokeToken(t *testing.T) {
 
 	// second revoke should error
 	err = authedClient.Token.Revoke(context.TODO(), op.TokenRevokeParams{
-		URL: newIncomingPaymentGrant.AccessToken.Manage,
+		URL:         newIncomingPaymentGrant.AccessToken.Manage,
 		AccessToken: newIncomingPaymentGrant.AccessToken.Value,
 	})
 	if err == nil {
@@ -550,7 +548,9 @@ func TestRevokeToken(t *testing.T) {
 }
 
 // ==============
-//  Test Helpers
+//
+//	Test Helpers
+//
 // ==============
 func newIncomingPaymentGrant() (*op.Grant, error) {
 	incomingAccess := as.AccessIncoming{
@@ -579,7 +579,7 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
 		op.GrantRequestParams{
-			URL: environment.ReceiverOpenPaymentsAuthUrl,
+			URL:         environment.ReceiverOpenPaymentsAuthUrl,
 			RequestBody: requestBody,
 		},
 	)
@@ -597,17 +597,17 @@ func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error)
 	payload := rs.CreateIncomingPaymentJSONBody{
 		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &schemas.Amount{
-			Value: "100",
-			AssetCode: environment.ReceiverAssetCode,
+			Value:      "100",
+			AssetCode:  environment.ReceiverAssetCode,
 			AssetScale: environment.ReceiverAssetScale,
 		},
 		ExpiresAt: &expiresAt,
 	}
 
 	incomingPayment, err := authedClient.IncomingPayment.Create(context.TODO(), op.IncomingPaymentCreateParams{
-		BaseURL: url,
+		BaseURL:     url,
 		AccessToken: grant.AccessToken.Value,
-		Payload: payload,
+		Payload:     payload,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Error creating incoming payment: %w", err)
@@ -658,7 +658,6 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 		Method:        "ilp",
 	}
 
-
 	quote, err := authedClient.Quote.Create(context.TODO(), op.QuoteCreateParams{
 		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
 		AccessToken: quoteGrant.AccessToken.Value,
@@ -678,3 +677,4 @@ func printJSON(t *testing.T, data interface{}) {
 	}
 	t.Logf("%s\n", string(bytes))
 }
+

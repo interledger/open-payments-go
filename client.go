@@ -9,14 +9,14 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/interledger/open-payments-go-sdk/pkg/httpsignatureutils"
+	"github.com/interledger/open-payments-go-sdk/httpsignatureutils"
 )
 
 type RequestDoer func(req *http.Request) (*http.Response, error)
 
 type Client struct {
-	httpClient *http.Client
-	WalletAddress *WalletAddressService
+	httpClient      *http.Client
+	WalletAddress   *WalletAddressService
 	IncomingPayment *PublicIncomingPaymentService
 }
 
@@ -50,23 +50,22 @@ func NewClient(opts ...ClientOption) *Client {
 }
 
 type AuthenticatedClient struct {
-	httpClient           *http.Client
-	preSignHook          func(req *http.Request)
-	postSignHook         func(req *http.Request)
-	walletAddressUrl     string  /** The wallet address which the client will identify itself by */
-	privateKey           ed25519.PrivateKey
-	keyId                string
-	WalletAddress        *WalletAddressService
-	Grant                *GrantService
-	IncomingPayment      *IncomingPaymentService
-	Quote                *QuoteService
-	Token                *TokenService
-	OutgoingPayment      *OutgoingPaymentService
+	httpClient       *http.Client
+	preSignHook      func(req *http.Request)
+	postSignHook     func(req *http.Request)
+	walletAddressUrl string /** The wallet address which the client will identify itself by */
+	privateKey       ed25519.PrivateKey
+	keyId            string
+	WalletAddress    *WalletAddressService
+	Grant            *GrantService
+	IncomingPayment  *IncomingPaymentService
+	Quote            *QuoteService
+	Token            *TokenService
+	OutgoingPayment  *OutgoingPaymentService
 }
 
 // AuthenticatedClientOption is used to configure optional behavior for the authenticated client.
 type AuthenticatedClientOption func(*AuthenticatedClient)
-
 
 // WithHTTPClientAuthed allows setting a custom HTTP client.
 //
@@ -107,7 +106,7 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		privateKey:       edKey,
 		keyId:            keyId,
 	}
-	
+
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -118,24 +117,23 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		DoSigned:   c.DoSigned,
 	}
 	c.Grant = &GrantService{
-		DoSigned:   c.DoSigned,
-		client:     c.walletAddressUrl,
+		DoSigned: c.DoSigned,
+		client:   c.walletAddressUrl,
 	}
 	c.Quote = &QuoteService{
-		DoSigned:   c.DoSigned,
+		DoSigned: c.DoSigned,
 	}
 	c.Token = &TokenService{
-		DoSigned:   c.DoSigned,
+		DoSigned: c.DoSigned,
 	}
 	c.OutgoingPayment = &OutgoingPaymentService{
-		DoSigned:   c.DoSigned,
+		DoSigned: c.DoSigned,
 	}
 
 	return c
 }
 
-
-func createContentDigest(body []byte) (string) {
+func createContentDigest(body []byte) string {
 	hash := sha512.Sum512(body)
 	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
 	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
@@ -181,9 +179,9 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 	return c.httpClient.Do(req)
 }
 
-// TODO: use or lose this DoSigned implementation. Did not like the (more or less) necessary side effect 
-// of CreateHeaders mutating the request. CreateHeaders has to add the content digest/length before signing. 
-// Could clone req in CreateHeaders but that seemed a bit heavy and potentially complicated. Alternatively 
+// TODO: use or lose this DoSigned implementation. Did not like the (more or less) necessary side effect
+// of CreateHeaders mutating the request. CreateHeaders has to add the content digest/length before signing.
+// Could clone req in CreateHeaders but that seemed a bit heavy and potentially complicated. Alternatively
 // could maybe just rename? SetSignatureHeaders? Just feels like maybe thats doing too much in httpsignatureutils.
 
 // func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {

@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"strings"
 
-	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
+	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
 )
 
 type IncomingPaymentService struct {
 	DoUnsigned RequestDoer
-	DoSigned RequestDoer
+	DoSigned   RequestDoer
 }
 
 type PublicIncomingPaymentService struct {
@@ -22,8 +22,8 @@ type PublicIncomingPaymentService struct {
 }
 
 type Pagination struct {
-	First string
-	Last string
+	First  string
+	Last   string
 	Cursor string
 }
 
@@ -37,19 +37,19 @@ type IncomingPaymentGetParams struct {
 }
 
 type IncomingPaymentListParams struct {
-	BaseURL       string     // The base URL for the incoming payments collection.
+	BaseURL       string // The base URL for the incoming payments collection.
 	AccessToken   string
 	WalletAddress string
 	Pagination    Pagination
 }
 
 type IncomingPaymentListResponse struct {
-	Pagination rs.PageInfo                       `json:"pagination"`
-	Result     []rs.IncomingPaymentWithMethods   `json:"result"`
+	Pagination rs.PageInfo                     `json:"pagination"`
+	Result     []rs.IncomingPaymentWithMethods `json:"result"`
 }
 
 type IncomingPaymentCreateParams struct {
-	BaseURL         string // The base URL for creating an incoming payment
+	BaseURL     string // The base URL for creating an incoming payment
 	AccessToken string
 	Payload     rs.CreateIncomingPaymentJSONBody
 }
@@ -231,4 +231,3 @@ func (ip *IncomingPaymentService) Complete(ctx context.Context, params IncomingP
 
 	return incomingPayment, nil
 }
-

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
+	as "github.com/interledger/open-payments-go-sdk/generated/authserver"
 )
 
 // TODO: Improve cumbersome work of forming grant requests. See tests.
@@ -21,17 +21,17 @@ import (
 //   NewIncomingPaymentAccessToken that takes access items (anything else? maybe not)
 
 type GrantService struct {
-	DoSigned            RequestDoer
-	client              string
+	DoSigned RequestDoer
+	client   string
 }
 
 type GrantRequestParams struct {
-	URL         string                 // Auth server URL
+	URL         string // Auth server URL
 	RequestBody as.PostRequestJSONBody
 }
 
 type GrantCancelParams struct {
-	URL         string	// continue URI
+	URL         string // continue URI
 	AccessToken string
 }
 
@@ -42,12 +42,12 @@ type GrantContinueParams struct {
 }
 
 // TODO: Address missing grant request type in generated types.
-// This re-constructs from the generated types therefore is prone 
-// to drift from OpenAPI spec. 
+// This re-constructs from the generated types therefore is prone
+// to drift from OpenAPI spec.
 type Grant struct {
-	Interact *as.InteractResponse `json:"interact,omitempty"`
-	AccessToken *as.AccessToken `json:"access_token,omitempty"`
-	Continue as.Continue `json:"continue"`
+	Interact    *as.InteractResponse `json:"interact,omitempty"`
+	AccessToken *as.AccessToken      `json:"access_token,omitempty"`
+	Continue    as.Continue          `json:"continue"`
 }
 
 func (gr *Grant) IsInteractive() bool {
@@ -58,7 +58,6 @@ func (gr *Grant) IsGranted() bool {
 	return gr.AccessToken != nil
 }
 
-
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
 	params.RequestBody.Client = gs.client
 
@@ -66,8 +65,8 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
-	
-	// TODO: validation. [debit|receive]Amount limits are mutually exclusive for 
+
+	// TODO: validation. [debit|receive]Amount limits are mutually exclusive for
 	// access token's with type outgoing-payment
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, params.URL, bytes.NewBuffer(reqBodyBytes))

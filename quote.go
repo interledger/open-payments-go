@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
+	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
 )
 
 type QuoteService struct {
@@ -26,7 +26,7 @@ type QuoteCreateParams struct {
 	AccessToken string
 	// TODO: cant use rs.CreateQuoteJSONBody (unexported `union`). is there a better workaround
 	// for this payload than any?
-	Payload     any
+	Payload any
 }
 
 func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quote, error) {
@@ -61,7 +61,7 @@ func (ip *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (r
 	if err != nil {
 		return rs.Quote{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	
+
 	baseURL := strings.TrimRight(params.BaseURL, "/")
 	fullURL := fmt.Sprintf("%s/quotes", baseURL)
 
