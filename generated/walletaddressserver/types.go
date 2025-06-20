@@ -4,7 +4,7 @@
 package walletaddressserver
 
 import (
-	externalRef0 "github.com/interledger/open-payments-go-sdk/generated/schemas"
+	externalRef0 "github.com/interledger/open-payments-go/generated/schemas"
 )
 
 // Defines values for JsonWebKeyAlg.

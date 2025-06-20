@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/interledger/open-payments-go-sdk/httpsignatureutils"
+	"github.com/interledger/open-payments-go/httpsignatureutils"
 )
 
 type RequestDoer func(req *http.Request) (*http.Response, error)

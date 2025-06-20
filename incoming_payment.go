@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
+	rs "github.com/interledger/open-payments-go/generated/resourceserver"
 )
 
 type IncomingPaymentService struct {

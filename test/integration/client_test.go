@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	op "github.com/interledger/open-payments-go-sdk"
-	as "github.com/interledger/open-payments-go-sdk/generated/authserver"
-	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
-	schemas "github.com/interledger/open-payments-go-sdk/generated/schemas"
+	op "github.com/interledger/open-payments-go"
+	as "github.com/interledger/open-payments-go/generated/authserver"
+	rs "github.com/interledger/open-payments-go/generated/resourceserver"
+	schemas "github.com/interledger/open-payments-go/generated/schemas"
 )
 
 var (

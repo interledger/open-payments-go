@@ -1,4 +1,4 @@
-module github.com/interledger/open-payments-go-sdk
+module github.com/interledger/open-payments-go
 
 go 1.20
 

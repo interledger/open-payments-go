@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	was "github.com/interledger/open-payments-go-sdk/generated/walletaddressserver"
+	was "github.com/interledger/open-payments-go/generated/walletaddressserver"
 )
 
 type WalletAddressService struct {

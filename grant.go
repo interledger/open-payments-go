@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	as "github.com/interledger/open-payments-go-sdk/generated/authserver"
+	as "github.com/interledger/open-payments-go/generated/authserver"
 )
 
 // TODO: Improve cumbersome work of forming grant requests. See tests.

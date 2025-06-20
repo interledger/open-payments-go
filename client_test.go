@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	was "github.com/interledger/open-payments-go-sdk/generated/walletaddressserver"
+	was "github.com/interledger/open-payments-go/generated/walletaddressserver"
 )
 
 func TestWalletAddress_Get_SuccessfulResponse(t *testing.T) {

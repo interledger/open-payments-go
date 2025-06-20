@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	rs "github.com/interledger/open-payments-go-sdk/generated/resourceserver"
+	rs "github.com/interledger/open-payments-go/generated/resourceserver"
 )
 
 type QuoteService struct {
