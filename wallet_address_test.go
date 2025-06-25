@@ -2,6 +2,8 @@ package openpayments_test
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"testing"
@@ -51,9 +53,9 @@ func withResourceServer(resourceServer string) walletAddressOption {
 }
 
 func mockWalletAddress(options ...walletAddressOption) was.WalletAddress {
-	defaultAuthServer := "https://auth.wallet.example/authorize"
+	defaultAuthServer := "https://auth.example.com"
 	defaultID := "https://example.com/.well-known/pay"
-	defaultResourceServer := "https://wallet.example/op"
+	defaultResourceServer := "https://example.com"
 	defaultPublicName := "Bob"
 
 	walletAddress := was.WalletAddress{
@@ -97,11 +99,102 @@ func TestWalletAddressGet(t *testing.T) {
 	res, err := client.WalletAddress.Get(context.Background(), openpayments.WalletAddressGetParams{
 		URL: fmt.Sprintf("%s%s", serverAddress, "/.well-known/pay"),
 	})
-	if err != nil {
-		panic(err)
-	}
 
 	assert.NoError(t, err)
 	assert.Equal(t, wa, res)
+	assert.True(t, gock.IsDone())
+}
+
+type jsonWebKeyOption func(*was.JsonWebKey)
+
+func withAlg(alg was.JsonWebKeyAlg) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.Alg = alg
+	}
+}
+
+func withCrv(crv was.JsonWebKeyCrv) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.Crv = crv
+	}
+}
+
+func withKid(kid string) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.Kid = kid
+	}
+}
+
+func withKty(kty was.JsonWebKeyKty) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.Kty = kty
+	}
+}
+
+func withUse(use was.JsonWebKeyUse) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.Use = &use
+	}
+}
+
+func withX(x string) jsonWebKeyOption {
+	return func(j *was.JsonWebKey) {
+		j.X = x
+	}
+}
+
+func generateRandomID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
+func mockJSONWebKey(options ...jsonWebKeyOption) was.JsonWebKey {
+	jwk := was.JsonWebKey{
+		Alg: was.JsonWebKeyAlg("EdDSA"),
+		Crv: was.JsonWebKeyCrv("Ed25519"),
+		Kid: generateRandomID(),
+		Kty: was.JsonWebKeyKty("OKP"),
+		Use: nil,
+		X:   generateRandomID(),
+	}
+
+	for _, option := range options {
+		option(&jwk)
+	}
+
+	return jwk
+}
+
+func mockJSONWebKeySet(keys ...was.JsonWebKey) was.JsonWebKeySet {
+	if len(keys) == 0 {
+		defaultKey := mockJSONWebKey()
+		keys = []was.JsonWebKey{defaultKey}
+	}
+
+	return was.JsonWebKeySet{
+		Keys: &keys,
+	}
+}
+
+func TestWalletAddressKeysGet(t *testing.T) {
+	defer gock.Off()
+	gock.InterceptClient(httpClient)
+
+	jwks := mockJSONWebKeySet()
+
+	fmt.Println(jwks)
+
+	gock.New(serverAddress).
+		Get("/.well-known/pay/jwks.json").
+		Reply(200).
+		JSON(jwks)
+
+	res, err := client.WalletAddress.GetKeys(context.Background(), openpayments.WalletAddressGetKeysParams{
+		URL: fmt.Sprintf("%s%s", serverAddress, "/.well-known/pay/jwks.json"),
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, jwks, res)
 	assert.True(t, gock.IsDone())
 }
