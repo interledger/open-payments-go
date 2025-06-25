@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	rs "github.com/interledger/open-payments-go-sdk/pkg/generated/resourceserver"
+	rs "github.com/interledger/open-payments-go/generated/resourceserver"
 )
 
 type OutgoingPaymentService struct {
@@ -22,15 +22,15 @@ type OutgoingPaymentGetParams struct {
 }
 
 type OutgoingPaymentListParams struct {
-	BaseURL       string     // The base URL for the outgoing payments collection.
+	BaseURL       string // The base URL for the outgoing payments collection.
 	AccessToken   string
 	WalletAddress string
 	Pagination    Pagination
 }
 
 type OutgoingPaymentListResponse struct {
-	Pagination rs.PageInfo                `json:"pagination"`
-	Result     []rs.OutgoingPayment       `json:"result"`
+	Pagination rs.PageInfo          `json:"pagination"`
+	Result     []rs.OutgoingPayment `json:"result"`
 }
 
 type OutgoingPaymentCreateParams struct {
@@ -157,4 +157,4 @@ func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPay
 	}
 
 	return outgoingPayment, nil
-} 
+}

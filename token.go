@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	as "github.com/interledger/open-payments-go-sdk/pkg/generated/authserver"
+	as "github.com/interledger/open-payments-go/generated/authserver"
 )
 
 type TokenService struct {
@@ -83,4 +83,3 @@ func (ts *TokenService) Revoke(ctx context.Context, params TokenRevokeParams) er
 
 	return nil
 }
-

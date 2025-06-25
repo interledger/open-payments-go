@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
-	externalRef0 "github.com/interledger/open-payments-go-sdk/pkg/generated/schemas"
+	externalRef0 "github.com/interledger/open-payments-go/generated/schemas"
 	"github.com/oapi-codegen/runtime"
 )
 
