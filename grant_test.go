@@ -3,6 +3,7 @@ package openpayments_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	openpayments "github.com/interledger/open-payments-go"
@@ -10,28 +11,40 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var pk string
-var client *openpayments.AuthenticatedClient
-
-func init() {
-	pk = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo="
-	client = openpayments.NewAuthenticatedClient("https://example.com/.well-known/pay", pk, "random")
-}
+var walletAddress = "https://example.com/.well-known/pay"
+var pk = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1DNENBUUF3QlFZREsyVndCQ0lFSUVxZXptY1BoT0U4Ymt3TitqUXJwcGZSWXpHSWRGVFZXUUdUSEpJS3B6ODgKLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo="
+var keyID = "keyid"
+var accessToken = "my-access-token"
 
 func TestGrantCancel(t *testing.T) {
-	var capture *http.Request
+	reqPath := "/continue/1"
 
-	spy := testutils.Spy(http.StatusNoContent, &capture)
+	mockServer := testutils.Mock(http.MethodDelete, reqPath, http.StatusNoContent, nil)
+	defer mockServer.Close()
 
-	client.Grant.DoSigned = spy
+	client := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(mockServer.Client()))
+
+	ds := func(req *http.Request) testutils.DoSignedResult {
+		res, err := client.DoSigned(req)
+		return testutils.DoSignedResult{Response: res, Error: err}
+	}
+	spy := testutils.SpyOn(ds)
+
+	client.Grant.DoSigned = func(req *http.Request) (*http.Response, error) {
+		result := spy.Func()(req)
+		return result.Response, result.Error
+	}
 
 	err := client.Grant.Cancel(context.Background(), openpayments.GrantCancelParams{
-		URL:         "https://test.com",
-		AccessToken: "myaccesstoken",
+		URL:         mockServer.URL + reqPath,
+		AccessToken: accessToken,
 	})
+
 	assert.NoError(t, err)
-	assert.NotNil(t, capture)
-	assert.Equal(t, capture.Method, http.MethodDelete)
-	assert.Equal(t, capture.URL.String(), "https://test.com")
-	assert.Equal(t, capture.Header.Get("authorization"), "GNAP myaccesstoken")
+	assert.Equal(t, spy.CallCount, 1)
+
+	capture := spy.Calls[0]
+	assert.Equal(t, http.MethodDelete, capture.Method)
+	assert.Equal(t, strings.TrimPrefix(capture.Header.Get("Authorization"), "GNAP "), accessToken)
+	assert.Equal(t, capture.URL.String(), mockServer.URL+reqPath)
 }
