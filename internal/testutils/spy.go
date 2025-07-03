@@ -34,7 +34,7 @@ func (s *Spy[T, R]) ResultCount() int {
 // DoSignedResult is specific for the DoSigned method.
 //
 // Go does not support multi-value returns for generics (i.e [T, (R, err)]
-// Consider adding a  generic tuple in the future to avoid defining responses
+// Consider adding a generic tuple in the future to avoid defining responses
 // for every function that we want to spy on.
 //
 // Source: https://github.com/golang/go/issues/61920#issuecomment-1676117645
