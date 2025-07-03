@@ -23,8 +23,3 @@ func Mock(method string, path string, status int, response any) *httptest.Server
 
 	return server
 }
-
-type DoSignedResult struct {
-	Response *http.Response
-	Error    error
-}
