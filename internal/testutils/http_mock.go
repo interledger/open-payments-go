@@ -17,10 +17,22 @@ func Mock(method string, path string, status int, response any) *httptest.Server
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
 		json.NewEncoder(w).Encode(response)
 	}))
 
 	return server
+}
+
+// Spy can be improved in the future if we want to spy and mock at the same time.
+// This would require by accepting a captureResponse argument as well.
+func Spy(status int, capture **http.Request) openpayments.RequestDoer {
+	spy := func(req *http.Request) (*http.Response, error) {
+		*capture = req
+		return &http.Response{
+			StatusCode: status,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}
+	return spy
 }
