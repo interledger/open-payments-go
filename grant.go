@@ -163,8 +163,6 @@ func (gs *GrantService) Cancel(ctx context.Context, params GrantCancelParams) er
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("status code", resp.StatusCode)
-
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("cancel request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}

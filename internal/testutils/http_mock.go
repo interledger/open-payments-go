@@ -2,8 +2,12 @@ package testutils
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+
+	openpayments "github.com/interledger/open-payments-go"
 )
 
 func Mock(method string, path string, status int, response any) *httptest.Server {
