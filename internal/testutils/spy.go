@@ -8,6 +8,16 @@ type Spy[T any, R any] struct {
 	Target  func(T) R
 }
 
+// SpyOn creates a new Spy for functions with a single input and a single output.
+//
+// Because of Go's generic constraints, this spy supports only functions of the
+// form: func(T) R
+//
+// Functions with multiple arguments must wrap their inputs in a struct or tuple
+// Similarly, multiple return values must be wrapped (e.g., using a custom struct or tuples).
+//
+// This limitation *should* be acceptable for our use case, as we primarily want
+// to spy on request-based functions such as `DoSigned` (Node SDK parity).
 func SpyOn[T any, R any](target func(T) R) *Spy[T, R] {
 	return &Spy[T, R]{Target: target}
 }
