@@ -41,10 +41,14 @@ func TestGrantCancel(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, spy.CallCount, 1)
 
+	assert.Equal(t, spy.CallCount(), 1)
 	capture := spy.Calls[0]
 	assert.Equal(t, http.MethodDelete, capture.Method)
 	assert.Equal(t, strings.TrimPrefix(capture.Header.Get("Authorization"), "GNAP "), accessToken)
 	assert.Equal(t, capture.URL.String(), mockServer.URL+reqPath)
+
+	assert.Equal(t, spy.ResultCount(), 1)
+	result := spy.Results[0]
+	assert.Equal(t, result.Response.StatusCode, http.StatusNoContent)
 }
