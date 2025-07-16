@@ -1,8 +1,13 @@
 package integration
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"time"
+
+	"github.com/chromedp/chromedp"
 )
 
 // TODO: Consider offloading some of this configuration to using URLs (auth server url, resource
@@ -28,6 +33,7 @@ type Environment struct {
 	PreSignHook                      func(req *http.Request)
 	PostSignHook                     func(req *http.Request)
 	RewriteURL                       func(string) (string, error) // optional, used only in local
+	Consent                          func(ctx context.Context, url string) error
 }
 
 func NewLocalEnvironment() *Environment {
@@ -61,6 +67,7 @@ func NewLocalEnvironment() *Environment {
 		PreSignHook:                      MakeLocalPreSignHook(localPortsToHost),
 		PostSignHook:                     MakeLocalPostSignHook(localHostsToPort),
 		RewriteURL:                       MakeLocalURLRewriter(localHostsToPort),
+		Consent:                          MakeLocalConsent(),
 	}
 
 	return &env
@@ -155,3 +162,48 @@ func (env *Environment) RewriteURLIfNeeded(raw string) (string, error) {
 	}
 	return raw, nil
 }
+
+// TODO: screencap/log html source on failure
+func MakeLocalConsent() func(ctx context.Context, url string) error {
+	return func(ctx context.Context, url string) error {
+		opts := append(chromedp.DefaultExecAllocatorOptions[:],
+			chromedp.Headless,
+			// chromedp.Flag("headless", false), // local debug
+			chromedp.NoSandbox,
+			chromedp.DisableGPU,
+		)
+		allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
+		defer cancel()
+
+		ctx, cancel = chromedp.NewContext(allocCtx)
+		defer cancel()
+
+		// Set a timeout to avoid hanging on certain failure scenarios
+		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+
+		fmt.Println("Navigating to consent URL:", url)
+
+		return chromedp.Run(ctx,
+			chromedp.Navigate(url),
+
+			chromedp.WaitVisible(`button[aria-label="allow"]`, chromedp.ByQuery),
+			chromedp.Click(`button[aria-label="allow"]`, chromedp.ByQuery),
+
+			chromedp.WaitVisible(`button[aria-label="close"]`, chromedp.ByQuery),
+			chromedp.Click(`button[aria-label="close"]`, chromedp.ByQuery),
+
+			chromedp.WaitVisible(`//*[contains(text(), "Accepted")]`, chromedp.BySearch),
+		)
+	}
+}
+
+
+
+func (env *Environment) CompleteConsentFlowWithChromedp(ctx context.Context, url string) error {
+	if env.Consent == nil {
+		return fmt.Errorf("no consent flow function defined for environment %s", env.Name)
+	}
+	return env.Consent(ctx, url)
+}
+

@@ -119,6 +119,7 @@ func (op *OutgoingPaymentService) List(ctx context.Context, params OutgoingPayme
 	return &listResponse, nil
 }
 
+// TODO: ensure this works with/without quoteId in the params.payload
 func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPaymentCreateParams) (rs.OutgoingPayment, error) {
 	if params.BaseURL == "" || params.AccessToken == "" {
 		return rs.OutgoingPayment{}, fmt.Errorf("missing required base url or access token")
