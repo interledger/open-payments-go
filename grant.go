@@ -94,8 +94,6 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	return grantResponse, nil
 }
 
-// TODO: test
-// TODO: handle no interact_ref (currently required but should be optional).
 func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams) (Grant, error) {
 	if params.URL == "" || params.AccessToken == "" {
 		return Grant{}, fmt.Errorf("missing required url or access token")
