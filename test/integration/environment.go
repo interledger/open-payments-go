@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
-	"github.com/chromedp/chromedp"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 // TODO: Consider offloading some of this configuration to using URLs (auth server url, resource
@@ -163,38 +165,84 @@ func (env *Environment) RewriteURLIfNeeded(raw string) (string, error) {
 	return raw, nil
 }
 
-// TODO: screencap/log html source on failure
 func MakeLocalConsent() func(ctx context.Context, url string) error {
 	return func(ctx context.Context, url string) error {
-		opts := append(chromedp.DefaultExecAllocatorOptions[:],
-			chromedp.Headless,
-			// chromedp.Flag("headless", false), // local debug
-			chromedp.NoSandbox,
-			chromedp.DisableGPU,
-		)
-		allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
-		defer cancel()
+		u := launcher.New().
+			Headless(true).
+			NoSandbox(true).
+			MustLaunch()
 
-		ctx, cancel = chromedp.NewContext(allocCtx)
-		defer cancel()
+		browser := rod.New().ControlURL(u).MustConnect()
+		defer browser.MustClose()
 
-		// Set a timeout to avoid hanging on certain failure scenarios
-		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
+		page := browser.MustPage().Timeout(10 * time.Second)
+
+		// capture latest screenshot and html
+		var lastScreenshot []byte
+		var lastHTML string
+		snapshot := func() {
+			if img, err := page.Screenshot(true, nil); err == nil {
+				lastScreenshot = img
+			} else {
+				fmt.Println("Warning: failed to capture screenshot:", err)
+			}
+
+			if html, err := page.HTML(); err == nil {
+				lastHTML = html
+			} else {
+				fmt.Println("Warning: failed to capture html:", err)
+			}
+		}
 
 		fmt.Println("Navigating to consent URL:", url)
 
-		return chromedp.Run(ctx,
-			chromedp.Navigate(url),
+		err := rod.Try(func() {
+			page.MustNavigate(url).MustWaitLoad()
+			snapshot()
 
-			chromedp.WaitVisible(`button[aria-label="allow"]`, chromedp.ByQuery),
-			chromedp.Click(`button[aria-label="allow"]`, chromedp.ByQuery),
+			fmt.Println("Waiting for 'allow' button...")
+			page.MustElement(`button[aria-label="allow"]`).MustWaitVisible().MustClick()
+			fmt.Println("Clicked allow.")
+			snapshot()
 
-			chromedp.WaitVisible(`button[aria-label="close"]`, chromedp.ByQuery),
-			chromedp.Click(`button[aria-label="close"]`, chromedp.ByQuery),
+			fmt.Println("Waiting for 'close' button...")
+			page.MustElement(`button[aria-label="close"]`).MustWaitVisible().MustClick()
+			fmt.Println("Clicked close.")
+			snapshot()
 
-			chromedp.WaitVisible(`//*[contains(text(), "Accepted")]`, chromedp.BySearch),
-		)
+			page.MustElementR("*", "Accepted")
+			fmt.Println("Consent accepted.")
+			snapshot()
+		})
+
+		if err != nil {
+			fmt.Println("Error interacting with consent UI:", err)
+			fmt.Println("Writing last snapshots to disk...")
+
+			const artifactDir = "artifacts"
+			os.MkdirAll(artifactDir, 0755)
+
+			// flush snapshots to disk
+			if lastScreenshot != nil {
+				if err := os.WriteFile("artifacts/error_screenshot.png", lastScreenshot, 0644); err != nil {
+					fmt.Println("Failed to save error screenshot:", err)
+				}
+			} else {
+				fmt.Println("No screenshot captured before error.")
+			}
+
+			if lastHTML != "" {
+				if err := os.WriteFile("artifacts/error_page.html", []byte(lastHTML), 0644); err != nil {
+					fmt.Println("Failed to save error page html:", err)
+				}
+			} else {
+				fmt.Println("No html captured before error.")
+			}
+
+			return fmt.Errorf("error interacting with consent UI: %w", err)
+		}
+
+		return nil
 	}
 }
 
