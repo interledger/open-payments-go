@@ -100,21 +100,14 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 	if params.URL == "" || params.AccessToken == "" {
 		return Grant{}, fmt.Errorf("missing required url or access token")
 	}
-	if params.InteractRef == "" {
-		return Grant{}, fmt.Errorf("missing interact_ref in continue request")
-	}
 	if !strings.Contains(params.URL, "continue/") {
 		return Grant{}, fmt.Errorf("invalid continuation grant URL: %s", params.URL)
 	}
 
-	// TODO: in php client but i dont htink we need?
-	// url := params.URL
-	// if !strings.HasSuffix(url, "/") {
-	// 	url += "/"
-	// }
+	requestBody := map[string]string{}
 
-	requestBody := map[string]string{
-		"interact_ref": params.InteractRef,
+	if (params.InteractRef != "") {
+		requestBody["interact_ref"] = params.InteractRef
 	}
 
 	bodyBytes, err := json.Marshal(requestBody)
