@@ -4,8 +4,6 @@ This package contains integration tests for the Open Payments client against a r
 
 Currently, the tests are configured to run against **Rafiki's local Docker environment**. Support for running against **testnet** is planned in the future.
 
-Some tests use a headless browser (via `chromedp`) to complete the consent interation. As a result, **Google Chrome is required** to be installed on the system.
-
 ## Running the Tests
 
 To run all integration tests:
