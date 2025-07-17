@@ -2,7 +2,7 @@
 
 requires:
 
-- go1.20+
+- go1.21+
 
 ## Commands
 
