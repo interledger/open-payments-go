@@ -454,14 +454,8 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}
 }
 
-// TODO: implement. needs consent interaction. how to test?
-// maybe chromedp?
-// or maybe keep it very manual with input from cli to confirm when consent given so that
-// it can proceed?
-func TestCreateOutgoingPayment(t *testing.T) {
-	t.Skip("Not implemented")
-
-	// Setup
+func TestCreateAndGetOutgoingPayment(t *testing.T) {
+	// Create incoming payment and quote
 	incomingPaymentGrant, err := newIncomingPaymentGrant()
 	if err != nil {
 		t.Fatalf("Error requesting grant for incoming payment: %v", err)
@@ -470,14 +464,95 @@ func TestCreateOutgoingPayment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating new incoming payment: %v", err)
 	}
-	_, err = newQuote(newIncomingPayment)
+	newQuote, err := newQuote(newIncomingPayment)
 	if err != nil {
-		t.Fatalf("Error creating quote: %v", err)
+		t.Fatalf("Error creating new incoming payment: %v", err)
 	}
 
-	// payload := rs.CreateOutgoingPaymentJSONRequestBody{}
+	// Grant Request
+	grant, err := newOutgoingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting outgoing payment grant: %v", err)
+	}
+
+	if grant.Interact == nil || grant.Interact.Redirect == "" {
+		t.Fatal("Missing interact.redirect URL in grant response")
+	}
+
+	// Complete browser interaction
+	t.Logf("Opening consent URL: %s", grant.Interact.Redirect)
+	err = environment.CompleteConsentFlowWithChromedp(context.TODO(), grant.Interact.Redirect)
+	if err != nil {
+		t.Fatalf("Error completing browser consent: %v", err)
+	}
+
+  // sleep grant.Continue.Wait in seconds
+	time.Sleep(time.Duration(*grant.Continue.Wait) * time.Second)
+
+	fmt.Print("grant.Continue.Uri", grant.Continue.Uri)
+
+	// Continue Grant
+	continuedGrant, err := authedClient.Grant.Continue(context.TODO(), op.GrantContinueParams{
+		URL:         grant.Continue.Uri,
+		AccessToken: grant.Continue.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error continuing grant: %v", err)
+	}
+
+	// Create Outgoing Payment
+	paymentPayload := rs.CreateOutgoingPaymentJSONBody{
+		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
+		QuoteId:       *newQuote.Id,
+		Metadata: &map[string]interface{}{
+			"purpose": "Integration test",
+		},
+	}
+
+	newOutgoingPayment, err := authedClient.OutgoingPayment.Create(context.TODO(), op.OutgoingPaymentCreateParams{
+		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
+		AccessToken: continuedGrant.AccessToken.Value,
+		Payload:     paymentPayload,
+	})
+	if err != nil {
+		t.Fatalf("Error creating outgoing payment: %v", err)
+	}
+
+	if *newQuote.Id != *newOutgoingPayment.QuoteId {
+		t.Errorf("Mismatched quote IDs: got %s, want %s", *newOutgoingPayment.QuoteId, *newQuote.Id)
+	}
+	if environment.ResolvedSenderWalletAddressUrl != *newOutgoingPayment.WalletAddress {
+		t.Errorf("Mismatched wallet addresses: got %s, want %s", *newOutgoingPayment.WalletAddress, environment.ResolvedSenderWalletAddressUrl)
+	}
+
+	outgoingPaymentURL, err := environment.RewriteURLIfNeeded(*newOutgoingPayment.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from outgoing payment: %v", err)
+	}
+	t.Logf("\nauthedClient.OutgoingPayment.Get(\"%s\")\n", outgoingPaymentURL)
+
+	retrievedPayment, err := authedClient.OutgoingPayment.Get(context.TODO(), op.OutgoingPaymentGetParams{
+		URL:     outgoingPaymentURL,
+		AccessToken: continuedGrant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error getting outgoing payment: %v", err)
+	}
+
+	printJSON(t, retrievedPayment)
+
+	if retrievedPayment.Id == nil || *retrievedPayment.Id != *newOutgoingPayment.Id {
+		t.Errorf("Expected retrieved outgoing payment ID to be %s, got %s", *newOutgoingPayment.Id, *retrievedPayment.Id)
+	}
+	if *retrievedPayment.QuoteId != *newOutgoingPayment.QuoteId {
+		t.Errorf("Mismatched quote IDs: got %s, want %s", *retrievedPayment.QuoteId, *newOutgoingPayment.QuoteId)
+	}
+	if *retrievedPayment.WalletAddress != *newOutgoingPayment.WalletAddress {
+		t.Errorf("Mismatched wallet addresses: got %s, want %s", *retrievedPayment.WalletAddress, *newOutgoingPayment.WalletAddress)
+	}
 
 }
+
 
 func TestRotateToken(t *testing.T) {
 	newIncomingPaymentGrant, err := newIncomingPaymentGrant()
@@ -669,6 +744,47 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 
 	return &quote, nil
 }
+
+func newOutgoingPaymentGrant() (*op.Grant, error) {
+	outgoingAccess := as.AccessOutgoing{
+		Type: as.OutgoingPayment,
+		Actions: []as.AccessOutgoingActions{
+			as.AccessOutgoingActionsCreate,
+			as.AccessOutgoingActionsRead,
+			as.AccessOutgoingActionsList,
+		},
+		Identifier: environment.ResolvedSenderWalletAddressUrl,
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessOutgoing(outgoingAccess); err != nil {
+		return nil, fmt.Errorf("error creating AccessItem: %w", err)
+	}
+	accessToken := struct {
+		Access as.Access `json:"access"`
+	}{
+		Access: []as.AccessItem{accessItem},
+	}
+	interact := &as.InteractRequest{
+		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+	}
+
+	grant, err := authedClient.Grant.Request(
+		context.TODO(),
+		op.GrantRequestParams{
+			URL:         environment.SenderOpenPaymentsAuthUrl,
+			RequestBody: as.PostRequestJSONBody{
+				AccessToken: accessToken,
+				Interact:    interact,
+			},
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error requesting grant: %w", err)
+	}
+
+	return &grant, nil
+}
+
 
 func printJSON(t *testing.T, data interface{}) {
 	bytes, err := json.MarshalIndent(data, "", "  ")

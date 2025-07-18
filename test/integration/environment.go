@@ -1,8 +1,15 @@
 package integration
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"time"
+
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 // TODO: Consider offloading some of this configuration to using URLs (auth server url, resource
@@ -28,6 +35,7 @@ type Environment struct {
 	PreSignHook                      func(req *http.Request)
 	PostSignHook                     func(req *http.Request)
 	RewriteURL                       func(string) (string, error) // optional, used only in local
+	Consent                          func(ctx context.Context, url string) error
 }
 
 func NewLocalEnvironment() *Environment {
@@ -61,6 +69,7 @@ func NewLocalEnvironment() *Environment {
 		PreSignHook:                      MakeLocalPreSignHook(localPortsToHost),
 		PostSignHook:                     MakeLocalPostSignHook(localHostsToPort),
 		RewriteURL:                       MakeLocalURLRewriter(localHostsToPort),
+		Consent:                          MakeLocalConsent(),
 	}
 
 	return &env
@@ -155,3 +164,94 @@ func (env *Environment) RewriteURLIfNeeded(raw string) (string, error) {
 	}
 	return raw, nil
 }
+
+func MakeLocalConsent() func(ctx context.Context, url string) error {
+	return func(ctx context.Context, url string) error {
+		u := launcher.New().
+			Headless(true).
+			NoSandbox(true).
+			MustLaunch()
+
+		browser := rod.New().ControlURL(u).MustConnect()
+		defer browser.MustClose()
+
+		page := browser.MustPage().Timeout(10 * time.Second)
+
+		// capture latest screenshot and html
+		var lastScreenshot []byte
+		var lastHTML string
+		snapshot := func() {
+			if img, err := page.Screenshot(true, nil); err == nil {
+				lastScreenshot = img
+			} else {
+				fmt.Println("Warning: failed to capture screenshot:", err)
+			}
+
+			if html, err := page.HTML(); err == nil {
+				lastHTML = html
+			} else {
+				fmt.Println("Warning: failed to capture html:", err)
+			}
+		}
+
+		fmt.Println("Navigating to consent URL:", url)
+
+		err := rod.Try(func() {
+			page.MustNavigate(url).MustWaitLoad()
+			snapshot()
+
+			fmt.Println("Waiting for 'allow' button...")
+			page.MustElement(`button[aria-label="allow"]`).MustWaitVisible().MustClick()
+			fmt.Println("Clicked allow.")
+			snapshot()
+
+			fmt.Println("Waiting for 'close' button...")
+			page.MustElement(`button[aria-label="close"]`).MustWaitVisible().MustClick()
+			fmt.Println("Clicked close.")
+			snapshot()
+
+			page.MustElementR("*", "Accepted")
+			fmt.Println("Consent accepted.")
+			snapshot()
+		})
+
+		if err != nil {
+			fmt.Println("Error interacting with consent UI:", err)
+			fmt.Println("Writing last snapshots to disk...")
+
+			const artifactDir = "artifacts"
+			os.MkdirAll(artifactDir, 0755)
+
+			// flush snapshots to disk
+			if lastScreenshot != nil {
+				if err := os.WriteFile("artifacts/error_screenshot.png", lastScreenshot, 0644); err != nil {
+					fmt.Println("Failed to save error screenshot:", err)
+				}
+			} else {
+				fmt.Println("No screenshot captured before error.")
+			}
+
+			if lastHTML != "" {
+				if err := os.WriteFile("artifacts/error_page.html", []byte(lastHTML), 0644); err != nil {
+					fmt.Println("Failed to save error page html:", err)
+				}
+			} else {
+				fmt.Println("No html captured before error.")
+			}
+
+			return fmt.Errorf("error interacting with consent UI: %w", err)
+		}
+
+		return nil
+	}
+}
+
+
+
+func (env *Environment) CompleteConsentFlowWithChromedp(ctx context.Context, url string) error {
+	if env.Consent == nil {
+		return fmt.Errorf("no consent flow function defined for environment %s", env.Name)
+	}
+	return env.Consent(ctx, url)
+}
+
