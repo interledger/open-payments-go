@@ -69,7 +69,7 @@ type MockJWKBuilder struct {
 
 func generateRandomID() string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	rand.Read(bytes) // #nosec G104
 	return hex.EncodeToString(bytes)
 }
 

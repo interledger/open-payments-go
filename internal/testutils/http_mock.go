@@ -18,7 +18,7 @@ func Mock(method string, path string, status int, response any) *httptest.Server
 		}
 
 		w.WriteHeader(status)
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(response) // #nosec G104
 	}))
 
 	return server
