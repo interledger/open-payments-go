@@ -37,7 +37,7 @@ func main() {
 		dr = flag.Bool("dry-run", false, "Show what would be done without making changes")
 	)
 
-	program := "go run internal/scripts/release.go"
+	program := "go run internal/scripts/release/release.go"
 
 	flag.Usage = func() {
 		fmt.Printf("Usage: %s -type=<bump_type>\n\n", program)
