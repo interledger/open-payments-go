@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -83,7 +84,7 @@ func main() {
 	if needsGoModUpdate {
 		fmt.Printf("Major version bump detected - 'go.mod' needs update\n")
 		if !*dr {
-			err = updateGoMod(newVersion.Major)
+			err = updateGoModAndImports(newVersion.Major)
 			if err != nil {
 				fmt.Printf("Error: Failed to update 'go.mod': %v\n", err)
 				os.Exit(1)
@@ -91,21 +92,15 @@ func main() {
 		}
 	}
 
-	// I am still not sure if this is the correct way of doing this. My though process:
-	//
-	// 1. If we want to release a new major version, update the go.mod file by
-	//    appending/increasing `/v${MAJOR_VERSION}` in the module name.
-	// 2. Push the updated 'go.mod' file to GitHub.
-	// 3. Tag & push
 	if needsGoModUpdate {
 		if !*dr {
-			err = commitAndPushGoModChanges(newVersion.String())
+			err = commitAndPush(newVersion.String())
 			if err != nil {
-				fmt.Printf("Error: Failed to push commit or push go.mod changes: %v\n", err)
+				fmt.Printf("Error: Failed to push commit or push changes: %v\n", err)
 				os.Exit(1)
 			}
 		} else {
-			fmt.Printf("DRY RUN MODE - Would commit and push go.mod changes for %s\n", newVersion)
+			fmt.Printf("DRY RUN MODE - Would commit and push changes for %s\n", newVersion)
 		}
 	}
 
@@ -177,7 +172,7 @@ func bumpVersion(current version, bumpType BumpType) version {
 	}
 }
 
-func updateGoMod(newMajor int) error {
+func updateGoModAndImports(newMajor int) error {
 	cmd := exec.Command("go", "list", "-m")
 	output, err := cmd.Output()
 	if err != nil {
@@ -208,35 +203,54 @@ func updateGoMod(newMajor int) error {
 		return fmt.Errorf("failed to run go mod tidy: %v", err)
 	}
 
+	files, err := findFilesUsingModule(currentModule)
+	if err != nil {
+		return fmt.Errorf("failed to find files using module %s: %v", currentModule, err)
+	}
+
+	err = updateImportsInFiles(files, currentModule, newModule)
+	if err != nil {
+		return fmt.Errorf("failed to update imports in files: %v", err)
+	}
+
 	return nil
 }
 
-func commitAndPushGoModChanges(version string) error {
-	cmd := exec.Command("git", "diff", "--quiet", "go.mod", "go.sum")
-	if err := cmd.Run(); err == nil {
-		fmt.Println("No go.mod changes to commit")
+func commitAndPush(version string) error {
+	cmd := exec.Command("git", "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to check git status: %v", err)
+	}
+
+	if len(output) == 0 {
+		fmt.Println("No changes to commit")
 		return nil
 	}
 
-	cmd = exec.Command("git", "add", "go.mod", "go.sum")
+	fmt.Printf("Detected changes:\n%s\n", output)
+
+	cmd = exec.Command("git", "add", "-u") // We use `-u` to only commit modified files
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to add go.mod/go.sum: %v", err)
+		return fmt.Errorf("failed to git add modified files: %v", err)
 	}
 
-	commitMsg := fmt.Sprintf("chore: update module path for %s", version)
+	// TODO: Double check to make sure there are not new files and exit with an error code?
+
+	commitMsg := fmt.Sprintf("chore: update module path and related files for %s", version)
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to commit go.mod changes: %v", err)
+		return fmt.Errorf("failed to commit changes: %v", err)
 	}
 
-	fmt.Printf("Committed go.mod changes for %s\n", version)
+	fmt.Printf("Committed changes for %s\n", version)
 
 	cmd = exec.Command("git", "push", "origin", "HEAD")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to push go.mod changes: %v", err)
+		return fmt.Errorf("failed to push changes: %v", err)
 	}
 
-	fmt.Printf("Pushed go.mod changes to remote\n")
+	fmt.Printf("Pushed changes to remote\n")
 	return nil
 }
 
@@ -254,5 +268,40 @@ func createAndPushTag(version string) error {
 	}
 
 	fmt.Printf("Pushed tag: %s\n", version)
+	return nil
+}
+
+func findFilesUsingModule(oldModule string) ([]string, error) {
+	cmd := exec.Command("grep", "-rl", oldModule, ".")
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
+			return nil, fmt.Errorf("grep error: %s", ee.Stderr)
+		}
+		return nil, fmt.Errorf("grep failed: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	fmt.Printf("Found %d files to update.\n", len(lines))
+	return lines, nil
+}
+
+func updateImportsInFiles(files []string, oldModule, newModule string) error {
+	for _, path := range files {
+		input, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", path, err)
+		}
+
+		if !bytes.Contains(input, []byte(oldModule)) {
+			continue // sanity check
+		}
+
+		output := bytes.ReplaceAll(input, []byte(`"`+oldModule), []byte(`"`+newModule))
+		if err := os.WriteFile(path, output, 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", path, err)
+		}
+		fmt.Printf("Updated imports in %s\n", path)
+	}
 	return nil
 }

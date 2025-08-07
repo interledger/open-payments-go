@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Go release script
         run: |
-          go run internal/scripts/release.go -type=${{ github.event.inputs.bump_type }} -dry-run=${{ github.event.inputs.dry_run }}
+          go run internal/scripts/release/release.go -type=${{ github.event.inputs.bump_type }} -dry-run=${{ github.event.inputs.dry_run }}
 
       - name: Get new version
         id: get_version
