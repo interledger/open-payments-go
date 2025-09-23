@@ -89,11 +89,14 @@ func WithPostSignHook(hook func(req *http.Request)) AuthenticatedClientOption {
 	}
 }
 
-func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId string, opts ...AuthenticatedClientOption) *AuthenticatedClient {
+func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId string, opts ...AuthenticatedClientOption) (*AuthenticatedClient, error) {
+	if len(walletAddressUrl) > 0 && walletAddressUrl[0] == '$' {
+		return nil, fmt.Errorf("invalid wallet address: %q (cannot start with '$')", walletAddressUrl)
+	}
+
 	edKey, err := httpsignatureutils.LoadBase64Key(privateKey)
 	if err != nil {
-		fmt.Println("Error loading key:", err)
-		return nil
+		return nil, fmt.Errorf("error loading private key: %w", err)
 	}
 
 	httpClient := &http.Client{
@@ -130,7 +133,7 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		DoSigned: c.DoSigned,
 	}
 
-	return c
+	return c, nil
 }
 
 func createContentDigest(body []byte) string {
