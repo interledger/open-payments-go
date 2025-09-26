@@ -216,9 +216,13 @@ func updateGoModAndImports(newMajor int) error {
 	return nil
 }
 
-func commitAndPush(version string) error {
+func getGitStatus() ([]byte, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
-	output, err := cmd.Output()
+	return cmd.Output()
+}
+
+func commitAndPush(version string) error {
+	output, err := getGitStatus()
 	if err != nil {
 		return fmt.Errorf("failed to check git status: %v", err)
 	}
@@ -230,12 +234,20 @@ func commitAndPush(version string) error {
 
 	fmt.Printf("Detected changes:\n%s\n", output)
 
-	cmd = exec.Command("git", "add", "-u") // We use `-u` to only commit modified files
+	cmd := exec.Command("git", "add", "-u") // We use `-u` to only commit modified files
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to git add modified files: %v", err)
 	}
 
-	// TODO: Double check to make sure there are not new files and exit with an error code?
+	output, err = getGitStatus()
+	if err != nil {
+		return fmt.Errorf("failed to check git status: %v", err)
+	}
+
+	if len(output) != 0 {
+		fmt.Printf("Unstaged / untracked files remain after 'git add -u':\n%s\n", output)
+		return fmt.Errorf("aborting commit: repository has untracked files")
+	}
 
 	commitMsg := fmt.Sprintf("chore: update module path and related files for %s", version)
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
