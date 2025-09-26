@@ -1,12 +1,9 @@
 package integration
 
-/*
-Integration tests for the Open Payments SDK. Requires a running instance of Rafiki.
-*/
-
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"testing"
@@ -25,13 +22,26 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// TODO: switch on some ENV var/cli arg when NewTestnetEnvironment is
-	// implemented to get correct environment
-	environment = NewLocalEnvironment()
+	envFlagPtr := flag.String("env", "local", "the environment to run the tests against")
+	flag.Parse()
+
+	switch *envFlagPtr {
+	case "local":
+		fmt.Println("Running against local environment")
+		environment = NewLocalEnvironment()
+	case "testnet":
+		fmt.Println("Running against testnet environment")
+		environment = NewTestnetEnvironment()
+	default:
+		fmt.Printf("Unknown environment %q, defaulting to local.\n", *envFlagPtr)
+		environment = NewLocalEnvironment()
+	}
 
 	// TODO: have NewLocalEnvironment() just return the initialized clients?
 	unauthedClient = op.NewClient(op.WithHTTPClientUnauthed(environment.HttpClient))
-	authedClient = op.NewAuthenticatedClient(
+	
+	var err error
+	authedClient, err = op.NewAuthenticatedClient(
 		environment.ClientWalletAddressURL,
 		environment.PrivateKey,
 		environment.KeyId,
@@ -39,13 +49,13 @@ func TestMain(m *testing.M) {
 		op.WithPreSignHook(environment.PreSignHook),
 		op.WithPostSignHook(environment.PostSignHook),
 	)
+	if err != nil {
+		fmt.Println("Failed to initialize authenticated client:", err)
+		os.Exit(1)
+	}
 
 	os.Exit(m.Run())
 }
-
-// TODO: test wa methods on authed client.
-// - could combine with current unauthed (just TestWalletAddressget??) but
-//   maybe seperate is better?
 
 func TestUnauthedWalletAddressGet(t *testing.T) {
 	url := environment.ReceiverWalletAddressUrl
@@ -203,10 +213,6 @@ func TestGrantCancel(t *testing.T) {
 	if err == nil {
 		t.Errorf("Grant cancellation did not error when expected")
 	}
-}
-
-func TestGrantContinue(t *testing.T) {
-	t.Skip("Not implemented")
 }
 
 func TestAuthenticatedGetIncomingPayment(t *testing.T) {
@@ -481,7 +487,7 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 
 	// Complete browser interaction
 	t.Logf("Opening consent URL: %s", grant.Interact.Redirect)
-	err = environment.CompleteConsentFlowWithChromedp(context.TODO(), grant.Interact.Redirect)
+	err = environment.Consent(context.TODO(), grant.Interact.Redirect)
 	if err != nil {
 		t.Fatalf("Error completing browser consent: %v", err)
 	}
@@ -550,6 +556,19 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 	if *retrievedPayment.WalletAddress != *newOutgoingPayment.WalletAddress {
 		t.Errorf("Mismatched wallet addresses: got %s, want %s", *retrievedPayment.WalletAddress, *newOutgoingPayment.WalletAddress)
 	}
+
+	incomingPayment, err := waitForIncomingPaymentCompletion(
+    *newIncomingPayment.Id,
+    incomingPaymentGrant.AccessToken.Value,
+    authedClient,
+    1*time.Second,
+    10*time.Second,
+	)
+	if err != nil {
+			t.Fatalf("Incoming payment did not complete: %v", err)
+	}
+
+	printJSON(t, incomingPayment)
 
 }
 
@@ -672,7 +691,7 @@ func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error)
 	payload := rs.CreateIncomingPaymentJSONBody{
 		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &schemas.Amount{
-			Value:      "100",
+			Value:      "1",
 			AssetCode:  environment.ReceiverAssetCode,
 			AssetScale: environment.ReceiverAssetScale,
 		},
@@ -784,6 +803,37 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 
 	return &grant, nil
 }
+
+func waitForIncomingPaymentCompletion(
+	url string,
+	accessToken string,
+	client *op.AuthenticatedClient,
+	interval time.Duration,
+	timeout time.Duration,
+) (*rs.IncomingPaymentWithMethods, error) {
+	deadline := time.Now().Add(timeout)
+
+	for {
+		incomingPayment, err := client.IncomingPayment.Get(context.TODO(), op.IncomingPaymentGetParams{
+			URL:         url,
+			AccessToken: accessToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error fetching incoming payment: %w", err)
+		}
+
+		if incomingPayment.Completed {
+			return &incomingPayment, nil
+		}
+
+		if time.Now().After(deadline) {
+			return &incomingPayment, fmt.Errorf("timeout waiting for incoming payment to complete")
+		}
+
+		time.Sleep(interval)
+	}
+}
+
 
 
 func printJSON(t *testing.T, data interface{}) {
