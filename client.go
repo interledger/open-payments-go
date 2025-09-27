@@ -150,7 +150,9 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 		if err != nil {
 			return nil, err
 		}
-		req.Body.Close()
+		if err := req.Body.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close request body: %w", err)
+		}
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
