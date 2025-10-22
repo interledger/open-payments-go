@@ -111,7 +111,7 @@ jobs:
   release:
     name: Release
     runs-on: "ubuntu-24.04"
-    needs: [go-vuln-and-sec-checks, build-and-test]
+    needs: [go-vuln-and-sec-checks, build-and-test, integration-tests]
     if: |
       github.event_name == 'workflow_dispatch' && 
       github.event.inputs.bump_type != '' && 
