@@ -1,0 +1,56 @@
+overlay: 1.0.0
+info:
+  title: Name inline Grant request variants
+  version: 0.1.0
+
+# Let the engine know we’re using RFC9535 JSONPath (as requested in the error)
+x-speakeasy-jsonpath: rfc9535
+
+# You can keep this as a relative path to your base spec
+extends: ../open-payments-specifications/openapi/auth-server.yaml
+
+actions:
+  # 1) Add named component schemas
+  - target: $.components.schemas
+    update:
+      GrantRequestWithAccessToken:
+        type: object
+        properties:
+          client:
+            $ref: '#/components/schemas/client'
+          interact:
+            $ref: '#/components/schemas/interact-request'
+          access_token:
+            type: object
+            required: [access]
+            properties:
+              access:
+                $ref: '#/components/schemas/access'
+          subject:
+            $ref: '#/components/schemas/subject'
+        required: [client, access_token]
+
+      GrantRequestWithSubject:
+        type: object
+        properties:
+          client:
+            $ref: '#/components/schemas/client'
+          interact:
+            $ref: '#/components/schemas/interact-request'
+          access_token:
+            type: object
+            required: [access]
+            properties:
+              access:
+                $ref: '#/components/schemas/access'
+          subject:
+            $ref: '#/components/schemas/subject'
+        required: [client, interact, subject]
+
+  # 2) Replace inline anyOf at "/" POST requestBody with $refs
+  - target: $.paths["/"].post.requestBody.content["application/json"].schema
+    update:
+      anyOf:
+        - $ref: '#/components/schemas/GrantRequestWithAccessToken'
+        - $ref: '#/components/schemas/GrantRequestWithSubject'
+
