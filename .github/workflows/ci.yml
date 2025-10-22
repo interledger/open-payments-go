@@ -63,8 +63,6 @@ jobs:
       SENDING_WALLET_ADDRESS: ${{ secrets.SENDING_WALLET_ADDRESS }}
       SENDING_WALLET_ADDRESS_EMAIL: ${{ secrets.SENDING_WALLET_ADDRESS_EMAIL }}
       SENDING_WALLET_ADDRESS_PASSWORD: ${{ secrets.SENDING_WALLET_ADDRESS_PASSWORD }}
-      # # Ensure Go modules use the project root
-      # GO111MODULE: on
 
     steps:
       - name: Checkout repository
@@ -75,21 +73,8 @@ jobs:
         with:
           go-version: 1.21
 
-      # install chromium
-      # - name: Install system dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y chromium-browser xvfb
       - name: Verify Go version
         run: go version
-
-        # make artifacts dir and run chromium
-        # - name: Run integration tests against testnet
-        #   run: |
-        #     echo "Running integration tests..."
-        #     mkdir -p test/integration/artifacts
-        #     xvfb-run --auto-servernum go test ./test/integration -v -env=testnet
-        ## shell: bash
 
       - name: Run integration tests against testnet
         run: |
