@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -77,26 +78,53 @@ func NewLocalEnvironment() *Environment {
 	return &env
 }
 
-func NewTestnetEnvironment() *Environment {
-	// load env vars and error if required are missing
-	file := ".env.testnet"
+type testnetEnvVars struct {
+	KeyID                      string
+	PrivateKeyBase64           string
+	SendingWalletAddress       string
+	SendingWalletAddressEmail  string
+	SendingWalletAddressPassword string
+}
+
+func loadTestnetEnvVars(file string) *testnetEnvVars {
+	// Try to load file, but don't fail if it's missing.
+	// Env vars may be passed directly into process (ci).
 	if err := godotenv.Load(file); err != nil {
-		log.Fatalf("error loading %s: %v", file, err)
-	}
-	requiredVars := []string{
-	"KEY_ID",
-	"PRIVATE_KEY_BASE64",
-	"SENDING_WALLET_ADDRESS",
-	"SENDING_WALLET_ADDRESS_EMAIL",
-	"SENDING_WALLET_ADDRESS_PASSWORD",
-	}
-	for _, v := range requiredVars {
-		if os.Getenv(v) == "" {
-			log.Fatalf("required environment variable %s not set in %s", v, file)
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: could not load %s: %v", file, err)
+		} else {
+			log.Printf("no %s found — assuming env vars are provided externally", file)
 		}
 	}
 
-	sendingWalletAddress := os.Getenv("SENDING_WALLET_ADDRESS")
+	requiredVars := []string{
+		"KEY_ID",
+		"PRIVATE_KEY_BASE64",
+		"SENDING_WALLET_ADDRESS",
+		"SENDING_WALLET_ADDRESS_EMAIL",
+		"SENDING_WALLET_ADDRESS_PASSWORD",
+	}
+
+	for _, v := range requiredVars {
+		if os.Getenv(v) == "" {
+			log.Fatalf("required environment variable %s not set (expected in %s or process env)", v, file)
+		}
+	}
+
+	return &testnetEnvVars{
+		KeyID:                      os.Getenv("KEY_ID"),
+		PrivateKeyBase64:           os.Getenv("PRIVATE_KEY_BASE64"),
+		SendingWalletAddress:       os.Getenv("SENDING_WALLET_ADDRESS"),
+		SendingWalletAddressEmail:  os.Getenv("SENDING_WALLET_ADDRESS_EMAIL"),
+		SendingWalletAddressPassword: os.Getenv("SENDING_WALLET_ADDRESS_PASSWORD"),
+	}
+}
+
+
+func NewTestnetEnvironment() *Environment {
+	file := ".env.testnet"
+	envVars := loadTestnetEnvVars(file)
+	sendingWalletAddress := envVars.SendingWalletAddress
 
 	env := Environment{
 		Name:                   					"testnet",
