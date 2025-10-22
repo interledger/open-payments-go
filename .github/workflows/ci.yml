@@ -2,6 +2,21 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Version bump type (leave empty for CI only)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Dry run for release pipeline"
+        required: false
+        type: boolean
+        default: false
   pull_request:
     branches:
       - "**"
@@ -10,8 +25,8 @@ on:
       - main
 
 jobs:
-  govulncheck:
-    name: Vulnerability scan
+  go-vuln-and-sec-checks:
+    name: Vulnerability scan & Security check
     runs-on: "ubuntu-24.04"
     steps:
       - name: Checkout source code
@@ -25,9 +40,14 @@ jobs:
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Scan for vulnerabilities
         run: govulncheck ./...
+      - name: Run Go security checker
+        uses: securego/gosec@master
+        with:
+          args: -exclude-dir internal/scripts -exclude-dir test ./...
 
   build-and-test:
     runs-on: "ubuntu-24.04"
+    needs: [go-vuln-and-sec-checks]
     strategy:
       matrix:
         go:
@@ -87,3 +107,69 @@ jobs:
         with:
           name: integration-test-artifacts
           path: test/integration/artifacts
+
+  release:
+    name: Release
+    runs-on: "ubuntu-24.04"
+    needs: [go-vuln-and-sec-checks, build-and-test]
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.bump_type != '' && 
+      github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          check-latest: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Go release script
+        run: |
+          go run internal/scripts/release/release.go -type=${{ github.event.inputs.bump_type }} -dry-run=${{ github.event.inputs.dry_run }}
+
+      - name: Get new version
+        id: get_version
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git fetch --tags
+          NEW_VERSION=$(git tag -l --sort=-version:refname | head -n1)
+          if [ -z "$NEW_VERSION" ]; then
+            NEW_VERSION="v0.0.0"
+          fi
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Released new version: $NEW_VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.NEW_VERSION }}
+          name: ${{ steps.get_version.outputs.NEW_VERSION }}
+          generate_release_notes: true
+
+      - name: Trigger Go Proxy Cache
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          MODULE_PATH=$(go list -m)
+          VERSION="${{ steps.get_version.outputs.NEW_VERSION}}"
+
+          GOPROXY_URL="https://proxy.golang.org/${MODULE_PATH}/@v/${VERSION}.info"
+
+          if curl -f -s -m 30 "$GOPROXY_URL" > /dev/null; then
+            echo "Successfully triggered Go proxy cache"
+          else
+            echo "Go proxy request failed (it may take a few minutes for new modules)"
+          fi
+          echo "Status check at: https://proxy.golang.org/${MODULE_PATH}/@v/list"
