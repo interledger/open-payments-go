@@ -290,6 +290,8 @@ func MakeTestnetConsent() func(ctx context.Context, url string) error {
 			fmt.Println("Clicked accept.")
 			snapshotter.Snapshot()
 
+			// testing ci
+			return fmt.Errorf("simulated failure for registry check")
 			page.MustElementR("*", "Accepted")
 			fmt.Println("Consent accepted.")
 			snapshotter.Snapshot()
