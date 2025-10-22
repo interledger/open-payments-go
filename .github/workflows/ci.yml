@@ -91,6 +91,11 @@ jobs:
         #     xvfb-run --auto-servernum go test ./test/integration -v -env=testnet
         ## shell: bash
 
+      - name: Run integration tests against testnet
+        run: |
+          echo "Running integration tests..."
+          go test ./test/integration -v -env=testnet
+
       - name: Upload artifacts (screenshots, HTML)
         if: failure()
         uses: actions/upload-artifact@v4
