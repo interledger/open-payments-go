@@ -27,7 +27,7 @@ type GrantService struct {
 
 type GrantRequestParams struct {
 	URL         string // Auth server URL
-	RequestBody as.PostRequestJSONBody
+	RequestBody as.GrantRequestWithAccessToken
 }
 
 type GrantCancelParams struct {

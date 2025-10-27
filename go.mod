@@ -7,7 +7,7 @@ toolchain go1.24.4
 require (
 	github.com/go-rod/rod v0.116.2
 	github.com/oapi-codegen/runtime v1.1.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (

@@ -1,0 +1,71 @@
+overlay: 1.0.0
+info:
+  title: Wallet Address rename and name CreateOutgoingPayment variants
+  version: 0.1.0
+x-speakeasy-jsonpath": rfc9535
+extends: ../open-payments-specifications/openapi/resource-server.yaml
+
+actions:
+  - target: components.schemas.walletAddress
+    description: Rename Go type to avoid conflict with wallet-address parameter
+    update:
+      x-go-name: WalletAddressSchema
+
+  - target: components.parameters.wallet-address
+    description: Rename Go parameter to avoid conflict with schema
+    update:
+      x-go-name: WalletAddressParam
+  # 1) Name the variant schemas explicitly
+  - target: $.components.schemas
+    update:
+      CreateOutgoingPaymentWithQuote:
+        type: object
+        required: [walletAddress, quoteId]
+        properties:
+          walletAddress:
+            $ref: "#/components/schemas/walletAddress"
+          quoteId:
+            type: string
+            description: The URL of the quote defining this payment's amounts.
+          metadata:
+            type: object
+            description: Additional metadata associated with the outgoing payment. (Optional)
+            additionalProperties: true
+
+      CreateOutgoingPaymentWithAmount:
+        type: object
+        required: [walletAddress, incomingPayment, debitAmount]
+        properties:
+          walletAddress:
+            $ref: "#/components/schemas/walletAddress"
+          incomingPayment:
+            type: string
+            description: The URL of the incoming payment this outgoing payment will fulfill.
+          debitAmount:
+            $ref: "#/components/schemas/amount"
+          metadata:
+            type: object
+            description: Additional metadata associated with the outgoing payment. (Optional)
+            additionalProperties: true
+
+      # 2) Name the union
+      CreateOutgoingPaymentRequest:
+        oneOf:
+          - $ref: "#/components/schemas/CreateOutgoingPaymentWithQuote"
+          - $ref: "#/components/schemas/CreateOutgoingPaymentWithAmount"
+
+  # 3) Create named requestBody
+  - target: $.components
+    update:
+      requestBodies:
+        CreateOutgoingPaymentRequestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOutgoingPaymentRequest"
+
+  # 4) Update the POST endpoint to use named requestBody
+  - target: $.paths["/outgoing-payments"].post.requestBody
+    update:
+      $ref: "#/components/requestBodies/CreateOutgoingPaymentRequestBody"
