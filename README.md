@@ -1,8 +1,27 @@
 # Development
 
-requires:
+**Requires:**
 
 - go1.21+
+
+## OpenAPI Specs
+
+This repository contains a Git submodule, which contains the Open Payments OpenAPI specifications.
+After cloning, make sure to initialize and update it:
+
+```bash
+git submodule update --init
+```
+
+Alternatively, clone the repository with submodules in one step:
+
+```bash
+git clone --recurse-submodules https://github.com/interledger/open-payments-go.git
+```
+
+The SDK depends on types generated from the specs. To generate types from the specs:
+
+    go generate ./generated
 
 ## Commands
 
@@ -25,11 +44,3 @@ Or to run test from a specific package:
 To include all logs for debugging or development:
 
     go test -v ./...
-
-### OpenAPI Specs
-
-This repository uses [open-payments-specifications](https://github.com/interledger/open-payments-specifications) as a submodule.
-
-Generate types from the specs:
-
-    go generate ./generated
