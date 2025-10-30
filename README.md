@@ -33,9 +33,9 @@ From root:
 
 Note, this runs all tests including integration, which requires the Rafiki localenv.
 
-To just run the integration tests:
+Integration tests can be run against a `local` or `testnet` Rafiki environment:
 
-    go test ./test/integration
+    go test ./test/integration -env=testnet
 
 Or to run test from a specific package:
 
