@@ -99,7 +99,7 @@ jobs:
       - name: Run integration tests against testnet
         run: |
           echo "Running integration tests..."
-          go test ./test/integration -v -env=testnet
+          go test ./test/integration -env=testnet
 
       - name: Upload artifacts (screenshots, HTML)
         if: failure()
