@@ -61,8 +61,8 @@ func TestWalletAddress_Get_FailedResponse(t *testing.T) {
 		t.Fatalf("expected an error, got nil")
 	}
 
-	if walletAddress != (was.WalletAddress{}) {
-		t.Errorf("expected an empty wallet address, got %+v", walletAddress)
+	if !reflect.DeepEqual(walletAddress, was.WalletAddress{}) {
+    t.Errorf("expected an empty wallet address, got %+v", walletAddress)
 	}
 
 }

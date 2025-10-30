@@ -12,7 +12,6 @@ import (
 	op "github.com/interledger/open-payments-go"
 	as "github.com/interledger/open-payments-go/generated/authserver"
 	rs "github.com/interledger/open-payments-go/generated/resourceserver"
-	schemas "github.com/interledger/open-payments-go/generated/schemas"
 )
 
 var (
@@ -179,7 +178,7 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 		Access: []as.AccessItem{accessItem},
 	}
 
-	requestBody := as.PostRequestJSONBody{
+	requestBody := as.GrantRequestWithAccessToken{
 		AccessToken: accessToken,
 	}
 
@@ -226,7 +225,10 @@ func TestAuthenticatedGetIncomingPayment(t *testing.T) {
 		t.Fatalf("Error creating new incoming payment: %v", err)
 	}
 
-	url := *newIncomingPayment.Id
+	url, err := environment.RewriteURLIfNeeded(*newIncomingPayment.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from incoming payment: %v", err)
+	}
 
 	t.Logf("\nauthedClient.IncomingPayment.Get(\"%s\")\n", url)
 
@@ -281,8 +283,8 @@ func TestCreateIncomingPayment(t *testing.T) {
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 	payload := rs.CreateIncomingPaymentJSONBody{
-		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
-		IncomingAmount: &schemas.Amount{
+		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
+		IncomingAmount: &rs.Amount{
 			Value:      "100",
 			AssetCode:  environment.ReceiverAssetCode,
 			AssetScale: environment.ReceiverAssetScale,
@@ -329,11 +331,16 @@ func TestCompleteIncomingPayment(t *testing.T) {
 		t.Fatalf("Expected new incoming payment to not be completed")
 	}
 
+	url, err := environment.RewriteURLIfNeeded(*incomingPayment.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from incoming payment: %v", err)
+	}
+
 	// Complete the incoming payment
-	t.Logf("\nauthedClient.IncomingPayment.Complete(\"%s\")\n", *incomingPayment.Id)
+	t.Logf("\nauthedClient.IncomingPayment.Complete(\"%s\")\n", url)
 
 	completedPayment, err := authedClient.IncomingPayment.Complete(context.TODO(), op.IncomingPaymentCompleteParams{
-		URL:         *incomingPayment.Id,
+		URL:         url,
 		AccessToken: grant.AccessToken.Value,
 	})
 	if err != nil {
@@ -383,7 +390,7 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}{
 		Access: []as.AccessItem{accessItem},
 	}
-	quoteGrantRequestBody := as.PostRequestJSONBody{
+	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
 		AccessToken: accessToken,
 	}
 
@@ -404,7 +411,7 @@ func TestCreateAndGetQuote(t *testing.T) {
 
 	// Create the Quote
 	createQuotePayload := rs.CreateQuoteJSONBody0{
-		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
+		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *newIncomingPayment.Id,
 		Method:        "ilp",
 	}
@@ -452,10 +459,10 @@ func TestCreateAndGetQuote(t *testing.T) {
 	if retrievedQuote.Id == nil || *retrievedQuote.Id != *newQuote.Id {
 		t.Errorf("Expected retrieved quote ID to be %s, got %s", *newQuote.Id, *retrievedQuote.Id)
 	}
-	if retrievedQuote.DebitAmount == (schemas.Amount{}) {
+	if retrievedQuote.DebitAmount == (rs.Amount{}) {
 		t.Error("Expected retrieved quote to have a debitAmount")
 	}
-	if retrievedQuote.ReceiveAmount == (schemas.Amount{}) {
+	if retrievedQuote.ReceiveAmount == (rs.Amount{}) {
 		t.Error("Expected retrieved quote to have a receiveAmount")
 	}
 }
@@ -495,8 +502,6 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
   // sleep grant.Continue.Wait in seconds
 	time.Sleep(time.Duration(*grant.Continue.Wait) * time.Second)
 
-	fmt.Print("grant.Continue.Uri", grant.Continue.Uri)
-
 	// Continue Grant
 	continuedGrant, err := authedClient.Grant.Continue(context.TODO(), op.GrantContinueParams{
 		URL:         grant.Continue.Uri,
@@ -506,13 +511,16 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 		t.Fatalf("Error continuing grant: %v", err)
 	}
 
-	// Create Outgoing Payment
-	paymentPayload := rs.CreateOutgoingPaymentJSONBody{
-		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
-		QuoteId:       *newQuote.Id,
+	var paymentPayload rs.CreateOutgoingPaymentRequest
+	err = paymentPayload.FromCreateOutgoingPaymentWithQuote(rs.CreateOutgoingPaymentWithQuote{
+		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
+		QuoteId:             *newQuote.Id,
 		Metadata: &map[string]interface{}{
 			"purpose": "Integration test",
 		},
+	})
+	if err != nil {
+		t.Fatalf("Error creating outgoing payment payload: %v", err)
 	}
 
 	newOutgoingPayment, err := authedClient.OutgoingPayment.Create(context.TODO(), op.OutgoingPaymentCreateParams{
@@ -536,6 +544,7 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 		t.Fatalf("Could not rewrite URL from outgoing payment: %v", err)
 	}
 	t.Logf("\nauthedClient.OutgoingPayment.Get(\"%s\")\n", outgoingPaymentURL)
+
 
 	retrievedPayment, err := authedClient.OutgoingPayment.Get(context.TODO(), op.OutgoingPaymentGetParams{
 		URL:     outgoingPaymentURL,
@@ -666,7 +675,7 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 		Access: []as.AccessItem{accessItem},
 	}
 
-	requestBody := as.PostRequestJSONBody{
+	requestBody := as.GrantRequestWithAccessToken{
 		AccessToken: accessToken,
 	}
 
@@ -689,8 +698,8 @@ func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error)
 	url := environment.ReceiverOpenPaymentsResourceUrl
 	expiresAt := time.Now().Add(24 * time.Hour)
 	payload := rs.CreateIncomingPaymentJSONBody{
-		WalletAddress: environment.ResolvedReceiverWalletAddressUrl,
-		IncomingAmount: &schemas.Amount{
+		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
+		IncomingAmount: &rs.Amount{
 			Value:      "1",
 			AssetCode:  environment.ReceiverAssetCode,
 			AssetScale: environment.ReceiverAssetScale,
@@ -729,7 +738,7 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	}{
 		Access: []as.AccessItem{accessItem},
 	}
-	quoteGrantRequestBody := as.PostRequestJSONBody{
+	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
 		AccessToken: accessToken,
 	}
 
@@ -747,7 +756,7 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 
 	// Create the Quote
 	createQuotePayload := rs.CreateQuoteJSONBody0{
-		WalletAddress: environment.ResolvedSenderWalletAddressUrl,
+		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *incomingPayment.Id,
 		Method:        "ilp",
 	}
@@ -791,7 +800,7 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 		context.TODO(),
 		op.GrantRequestParams{
 			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: as.PostRequestJSONBody{
+			RequestBody: as.GrantRequestWithAccessToken{
 				AccessToken: accessToken,
 				Interact:    interact,
 			},
@@ -843,4 +852,3 @@ func printJSON(t *testing.T, data interface{}) {
 	}
 	t.Logf("%s\n", string(bytes))
 }
-

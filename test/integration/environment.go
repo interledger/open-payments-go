@@ -61,12 +61,12 @@ func NewLocalEnvironment() *Environment {
 		},
 		ResolvedReceiverWalletAddressUrl: "https://happy-life-bank-backend/accounts/pfry",
 		ReceiverWalletAddressUrl:         "http://localhost:4000/accounts/pfry",
-		ReceiverOpenPaymentsAuthUrl:      "http://localhost:4006",
-		ReceiverOpenPaymentsResourceUrl:  "http://localhost:4000",
+		ReceiverOpenPaymentsAuthUrl:      "http://localhost:4006/cf5fd7d3-1eb1-4041-8e43-ba45747e9e5d",
+		ReceiverOpenPaymentsResourceUrl:  "http://localhost:4000/cf5fd7d3-1eb1-4041-8e43-ba45747e9e5d",
 		ReceiverAssetCode:                "USD",
 		ReceiverAssetScale:               2,
-		SenderOpenPaymentsAuthUrl:        "http://localhost:3006",
-		SenderOpenPaymentsResourceUrl:    "http://localhost:3000",
+		SenderOpenPaymentsAuthUrl:        "http://localhost:3006/438fa74a-fa7d-4317-9ced-dde32ece1787",
+		SenderOpenPaymentsResourceUrl:    "http://localhost:3000/438fa74a-fa7d-4317-9ced-dde32ece1787",
 		SenderWalletAddressUrl:           "http://localhost:3000/accounts/gfranklin",
 		ResolvedSenderWalletAddressUrl:   "https://cloud-nine-wallet-backend/accounts/gfranklin",
 		PreSignHook:                      MakeLocalPreSignHook(localPortsToHost),
@@ -210,6 +210,7 @@ func MakeLocalURLRewriter(hostsToPort map[string]string) func(string) (string, e
 		}
 
 		if port, ok := hostsToPort[parsed.Hostname()]; ok {
+			parsed.Scheme = "http"
 			parsed.Host = "localhost:" + port
 		}
 

@@ -36,7 +36,7 @@ type OutgoingPaymentListResponse struct {
 type OutgoingPaymentCreateParams struct {
 	BaseURL     string // The base URL for creating an outgoing payment
 	AccessToken string
-	Payload     rs.CreateOutgoingPaymentJSONBody
+	Payload     rs.CreateOutgoingPaymentRequest
 }
 
 func (op *OutgoingPaymentService) Get(ctx context.Context, params OutgoingPaymentGetParams) (rs.OutgoingPayment, error) {

@@ -1,0 +1,70 @@
+overlay: 1.0.0
+info:
+  title: Name Grant request body and branches (no discriminator)
+  version: 0.2.0
+# Your overlay engine asked for this mode:
+x-speakeasy-jsonpath: rfc9535
+
+# Adjust if your spec path differs
+extends: ../open-payments-specifications/openapi/auth-server.yaml
+
+actions:
+  # 1) Add two named branch schemas (copied from your inline shapes)
+  - target: $.components.schemas
+    update:
+      GrantRequestWithAccessToken:
+        type: object
+        properties:
+          client:
+            $ref: '#/components/schemas/client'
+          interact:
+            $ref: '#/components/schemas/interact-request'
+          access_token:
+            type: object
+            required: [access]
+            properties:
+              access:
+                $ref: '#/components/schemas/access'
+          subject:
+            $ref: '#/components/schemas/subject'
+        required: [client, access_token]
+
+      GrantRequestWithSubject:
+        type: object
+        properties:
+          client:
+            $ref: '#/components/schemas/client'
+          interact:
+            $ref: '#/components/schemas/interact-request'
+          access_token:
+            type: object
+            required: [access]
+            properties:
+              access:
+                $ref: '#/components/schemas/access'
+          subject:
+            $ref: '#/components/schemas/subject'
+        required: [client, interact, subject]
+
+      # 2) Name the union itself so the top-level type isn't PostRequestJSONBody
+      GrantRequestBody:
+        oneOf:
+          - $ref: '#/components/schemas/GrantRequestWithAccessToken'
+          - $ref: '#/components/schemas/GrantRequestWithSubject'
+
+  # 3) (Nice-to-have) create a named requestBody component that uses the union
+  - target: $.components
+    update:
+      requestBodies:
+        GrantRequest:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantRequestBody'
+
+  # 4) Make "/" POST use the named requestBody
+  - target: $.paths["/"].post.requestBody
+    update:
+      $ref: '#/components/requestBodies/GrantRequest'
+
