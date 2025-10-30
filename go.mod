@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/go-rod/rod v0.116.2
+	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/runtime v1.1.0
 	github.com/stretchr/testify v1.9.0
 )

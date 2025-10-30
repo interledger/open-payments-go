@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -82,7 +83,13 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Grant{}, fmt.Errorf("failed to perform grant request: %s", resp.Status)
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		bodyStr := strings.TrimSpace(string(bodyBytes))
+
+		return Grant{}, fmt.Errorf(
+			"failed to perform grant request: %s\nURL: %s\nRequest body: %s\nResponse body: %s",
+			resp.Status, req.URL, string(reqBodyBytes), bodyStr,
+		)
 	}
 
 	var grantResponse Grant

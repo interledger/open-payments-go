@@ -2,7 +2,9 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/joho/godotenv"
 )
 
 // TODO: Consider offloading some of this configuration to using URLs (auth server url, resource
@@ -75,21 +78,77 @@ func NewLocalEnvironment() *Environment {
 	return &env
 }
 
-// TODO: NewTestnetEnvironment
-// func NewTestnetEnvironment() Environment {
-// 	return Environment{
-// 		Name:                            "testnet",
-// 		ClientWalletAddressURL:          "", // read from ENV, like "https://interledger-test.dev/blair"
-// 		PrivateKey:                      "", // read from ENV
-// 		KeyId:                           "", // read from ENV
-// 		HttpClient:                      &http.Client{},
-// 		PreSignHook:                     nil,
-// 		PostSignHook:                    nil,
-// 		ReceiverWalletAddressUrl:        "",
-//    ReceiverOpenPaymentsAuthUrl:     "https://auth.interledger-test.dev/",
-// 		ReceiverOpenPaymentsResourceUrl: "",
-// 	}
-// }
+type testnetEnvVars struct {
+	KeyID                      string
+	PrivateKeyBase64           string
+	SendingWalletAddress       string
+	SendingWalletAddressEmail  string
+	SendingWalletAddressPassword string
+}
+
+func loadTestnetEnvVars(file string) *testnetEnvVars {
+	// Try to load file, but don't fail if it's missing.
+	// Env vars may be passed directly into process (ci).
+	if err := godotenv.Load(file); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Printf("warning: could not load %s: %v", file, err)
+		} else {
+			log.Printf("no %s found — assuming env vars are provided externally", file)
+		}
+	}
+
+	requiredVars := []string{
+		"KEY_ID",
+		"PRIVATE_KEY_BASE64",
+		"SENDING_WALLET_ADDRESS",
+		"SENDING_WALLET_ADDRESS_EMAIL",
+		"SENDING_WALLET_ADDRESS_PASSWORD",
+	}
+
+	for _, v := range requiredVars {
+		if os.Getenv(v) == "" {
+			log.Fatalf("required environment variable %s not set (expected in %s or process env)", v, file)
+		}
+	}
+
+	return &testnetEnvVars{
+		KeyID:                      os.Getenv("KEY_ID"),
+		PrivateKeyBase64:           os.Getenv("PRIVATE_KEY_BASE64"),
+		SendingWalletAddress:       os.Getenv("SENDING_WALLET_ADDRESS"),
+		SendingWalletAddressEmail:  os.Getenv("SENDING_WALLET_ADDRESS_EMAIL"),
+		SendingWalletAddressPassword: os.Getenv("SENDING_WALLET_ADDRESS_PASSWORD"),
+	}
+}
+
+
+func NewTestnetEnvironment() *Environment {
+	file := ".env.testnet"
+	envVars := loadTestnetEnvVars(file)
+	sendingWalletAddress := envVars.SendingWalletAddress
+
+	env := Environment{
+		Name:                   					"testnet",
+		ClientWalletAddressURL: 					sendingWalletAddress,
+		PrivateKey:             					os.Getenv("PRIVATE_KEY_BASE64"),
+		KeyId:                  					os.Getenv("KEY_ID"),
+		HttpClient:                      	&http.Client{},
+		PreSignHook:                     	nil,
+		PostSignHook:                    	nil,
+		ResolvedReceiverWalletAddressUrl: "https://ilp.interledger-test.dev/blair",
+		ReceiverWalletAddressUrl:         "https://ilp.interledger-test.dev/blair",
+		ReceiverOpenPaymentsAuthUrl:      "https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c",
+		ReceiverOpenPaymentsResourceUrl:  "https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c",
+		ReceiverAssetCode:                "USD",
+		ReceiverAssetScale:               2,
+		SenderOpenPaymentsAuthUrl:        "https://auth.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c",
+		SenderOpenPaymentsResourceUrl:    "https://ilp.interledger-test.dev/f537937b-7016-481b-b655-9f0d1014822c",
+		SenderWalletAddressUrl:           sendingWalletAddress,
+		ResolvedSenderWalletAddressUrl:   sendingWalletAddress,
+		Consent:                          MakeTestnetConsent(),
+	}
+
+	return &env
+}
 
 // HostHeaderRoundTripper modifies Host header to match remote services while using localhost.
 // RoundTripper will modify all requests after DoSigned/DoUnsigned
@@ -165,93 +224,121 @@ func (env *Environment) RewriteURLIfNeeded(raw string) (string, error) {
 	return raw, nil
 }
 
+func makeConsent(url string, actions func(page *rod.Page, snapshot *Snapshotter) error) error {
+	u := launcher.New().
+		Headless(true).
+		NoSandbox(true).
+		MustLaunch()
+
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
+
+	page := browser.MustPage().Timeout(30 * time.Second)
+	snapshotter := NewSnapshotter(page)
+
+	err := rod.Try(func() {
+		page.MustNavigate(url).MustWaitLoad()
+		snapshotter.Snapshot()
+		if err := actions(page, snapshotter); err != nil {
+			panic(err)
+		}
+	})
+
+	if err != nil {
+		fmt.Println("Error interacting with consent UI:", err)
+		fmt.Println("Writing last snapshots to disk...")
+		snapshotter.FlushOnError()
+		return fmt.Errorf("error interacting with consent UI: %w", err)
+	}
+
+	return nil
+}
+
 func MakeLocalConsent() func(ctx context.Context, url string) error {
 	return func(ctx context.Context, url string) error {
-		u := launcher.New().
-			Headless(true).
-			NoSandbox(true).
-			MustLaunch()
-
-		browser := rod.New().ControlURL(u).MustConnect()
-		defer browser.MustClose()
-
-		page := browser.MustPage().Timeout(10 * time.Second)
-
-		// capture latest screenshot and html
-		var lastScreenshot []byte
-		var lastHTML string
-		snapshot := func() {
-			if img, err := page.Screenshot(true, nil); err == nil {
-				lastScreenshot = img
-			} else {
-				fmt.Println("Warning: failed to capture screenshot:", err)
-			}
-
-			if html, err := page.HTML(); err == nil {
-				lastHTML = html
-			} else {
-				fmt.Println("Warning: failed to capture html:", err)
-			}
-		}
-
-		fmt.Println("Navigating to consent URL:", url)
-
-		err := rod.Try(func() {
-			page.MustNavigate(url).MustWaitLoad()
-			snapshot()
-
+		return makeConsent(url, func(page *rod.Page, snapshotter *Snapshotter) error {
 			fmt.Println("Waiting for 'allow' button...")
 			page.MustElement(`button[aria-label="allow"]`).MustWaitVisible().MustClick()
 			fmt.Println("Clicked allow.")
-			snapshot()
+			snapshotter.Snapshot()
 
 			fmt.Println("Waiting for 'close' button...")
 			page.MustElement(`button[aria-label="close"]`).MustWaitVisible().MustClick()
 			fmt.Println("Clicked close.")
-			snapshot()
+			snapshotter.Snapshot()
 
 			page.MustElementR("*", "Accepted")
 			fmt.Println("Consent accepted.")
-			snapshot()
+			snapshotter.Snapshot()
+			return nil
 		})
+	}
+}
 
-		if err != nil {
-			fmt.Println("Error interacting with consent UI:", err)
-			fmt.Println("Writing last snapshots to disk...")
+func MakeTestnetConsent() func(ctx context.Context, url string) error {
+	return func(ctx context.Context, url string) error {
+		return makeConsent(url, func(page *rod.Page, snapshotter *Snapshotter) error {
+			fmt.Println("Waiting for login screen...")
+			page.MustElement(`input[type="email"]`).MustWaitVisible().MustInput(os.Getenv("SENDING_WALLET_ADDRESS_EMAIL"))
+			page.MustElement(`input[type="password"]`).MustWaitVisible().MustInput(os.Getenv("SENDING_WALLET_ADDRESS_PASSWORD"))
+			page.MustElement(`button[aria-label="login"]`).MustWaitVisible().MustClick()
+			fmt.Println("Input credentials and clicked login.")
+			snapshotter.Snapshot()
 
-			const artifactDir = "artifacts"
-			os.MkdirAll(artifactDir, 0755)
+			fmt.Println("Waiting for 'accept' button...")
+			page.MustElement(`button[aria-label="accept"]`).MustWaitVisible().MustClick()
+			fmt.Println("Clicked accept.")
+			snapshotter.Snapshot()
 
-			// flush snapshots to disk
-			if lastScreenshot != nil {
-				if err := os.WriteFile("artifacts/error_screenshot.png", lastScreenshot, 0644); err != nil {
-					fmt.Println("Failed to save error screenshot:", err)
-				}
-			} else {
-				fmt.Println("No screenshot captured before error.")
-			}
+			page.MustElementR("*", "Accepted")
+			fmt.Println("Consent accepted.")
+			snapshotter.Snapshot()
+			return nil
+		})
+	}
+}
 
-			if lastHTML != "" {
-				if err := os.WriteFile("artifacts/error_page.html", []byte(lastHTML), 0644); err != nil {
-					fmt.Println("Failed to save error page html:", err)
-				}
-			} else {
-				fmt.Println("No html captured before error.")
-			}
+type Snapshotter struct {
+	Page           *rod.Page
+	LastScreenshot []byte
+	LastHTML       string
+}
 
-			return fmt.Errorf("error interacting with consent UI: %w", err)
+func NewSnapshotter(page *rod.Page) *Snapshotter {
+	return &Snapshotter{Page: page}
+}
+
+func (s *Snapshotter) Snapshot() {
+	if img, err := s.Page.Screenshot(true, nil); err == nil {
+		s.LastScreenshot = img
+	} else {
+		fmt.Println("Warning: failed to capture screenshot:", err)
+	}
+
+	if html, err := s.Page.HTML(); err == nil {
+		s.LastHTML = html
+	} else {
+		fmt.Println("Warning: failed to capture html:", err)
+	}
+}
+
+func (s *Snapshotter) FlushOnError() {
+	const artifactDir = "artifacts"
+	os.MkdirAll(artifactDir, 0755)
+
+	if s.LastScreenshot != nil {
+		if err := os.WriteFile("artifacts/error_screenshot.png", s.LastScreenshot, 0644); err != nil {
+			fmt.Println("Failed to save error screenshot:", err)
 		}
+	} else {
+		fmt.Println("No screenshot captured before error.")
+	}
 
-		return nil
+	if s.LastHTML != "" {
+		if err := os.WriteFile("artifacts/error_page.html", []byte(s.LastHTML), 0644); err != nil {
+			fmt.Println("Failed to save error page html:", err)
+		}
+	} else {
+		fmt.Println("No html captured before error.")
 	}
 }
-
-
-
-func (env *Environment) CompleteConsentFlowWithChromedp(ctx context.Context, url string) error {
-	if env.Consent == nil {
-		return fmt.Errorf("no consent flow function defined for environment %s", env.Name)
-	}
-	return env.Consent(ctx, url)
-}
-

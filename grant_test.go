@@ -2,6 +2,7 @@ package openpayments_test
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -22,7 +23,10 @@ func TestGrantCancel(t *testing.T) {
 	mockServer := testutils.Mock(http.MethodDelete, reqPath, http.StatusNoContent, nil)
 	defer mockServer.Close()
 
-	client := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(mockServer.Client()))
+	client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(mockServer.Client()))
+	if err != nil {
+		log.Fatalf("Failed to initialize authenticated client: %v", err)
+	}
 
 	ds := func(req *http.Request) testutils.DoSignedResult {
 		res, err := client.DoSigned(req)
@@ -35,7 +39,7 @@ func TestGrantCancel(t *testing.T) {
 		return result.Response, result.Error
 	}
 
-	err := client.Grant.Cancel(context.Background(), openpayments.GrantCancelParams{
+	err = client.Grant.Cancel(context.Background(), openpayments.GrantCancelParams{
 		URL:         mockServer.URL + reqPath,
 		AccessToken: accessToken,
 	})
