@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/interledger/open-payments-go/httpsignatureutils"
 )
@@ -89,12 +91,51 @@ func WithPostSignHook(hook func(req *http.Request)) AuthenticatedClientOption {
 	}
 }
 
-func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId string, opts ...AuthenticatedClientOption) (*AuthenticatedClient, error) {
+// loadPrivateKey attempts to load a private key from either a file path or base64 string.
+// It first checks if the input looks like a file path (contains '/' or '\' or has common extensions),
+// and if that file exists. If so, it loads from file. Otherwise, it treats it as base64.
+func loadPrivateKey(keyInput string) (ed25519.PrivateKey, error) {
+	// Check if it looks like a file path and if the file exists
+	if isLikelyFilePath(keyInput) {
+		if _, err := os.Stat(keyInput); err == nil {
+			// File exists, load from file
+			return httpsignatureutils.LoadKey(keyInput)
+		}
+	}
+
+	// Try as base64
+	return httpsignatureutils.LoadBase64Key(keyInput)
+}
+
+// isLikelyFilePath returns true if the string looks like it could be a file path
+func isLikelyFilePath(s string) bool {
+	if strings.Contains(s, "/") || strings.Contains(s, "\\") {
+		return true
+	}
+	
+	if strings.HasSuffix(s, ".pem") || strings.HasSuffix(s, ".key") {
+		return true
+	}
+	
+	if strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") || strings.HasPrefix(s, ".\\") || strings.HasPrefix(s, "..\\") {
+		return true
+	}
+	
+	return false
+}
+
+// NewAuthenticatedClient creates a new authenticated client.
+// The privateKeyOrPath parameter can be either:
+//   - A file path to a PEM-encoded Ed25519 private key (e.g., "./keys/private.pem")
+//   - A base64-encoded PEM string
+//
+// The function automatically detects which format is provided.
+func NewAuthenticatedClient(walletAddressUrl string, privateKeyOrPath string, keyId string, opts ...AuthenticatedClientOption) (*AuthenticatedClient, error) {
 	if len(walletAddressUrl) > 0 && walletAddressUrl[0] == '$' {
 		return nil, fmt.Errorf("invalid wallet address: %q (cannot start with '$')", walletAddressUrl)
 	}
 
-	edKey, err := httpsignatureutils.LoadBase64Key(privateKey)
+	edKey, err := loadPrivateKey(privateKeyOrPath)
 	if err != nil {
 		return nil, fmt.Errorf("error loading private key: %w", err)
 	}
