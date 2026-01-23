@@ -99,6 +99,12 @@ const (
 	Uri SubjectSubIdsFormat = "uri"
 )
 
+// AccessTokenRequest The requested access permissions for the grant.
+type AccessTokenRequest struct {
+	// Access A description of the rights associated with this access token.
+	Access Access `json:"access"`
+}
+
 // GrantRequestBody defines model for GrantRequestBody.
 type GrantRequestBody struct {
 	union json.RawMessage
@@ -106,10 +112,8 @@ type GrantRequestBody struct {
 
 // GrantRequestWithAccessToken defines model for GrantRequestWithAccessToken.
 type GrantRequestWithAccessToken struct {
-	AccessToken struct {
-		// Access A description of the rights associated with this access token.
-		Access Access `json:"access"`
-	} `json:"access_token"`
+	// AccessToken The requested access permissions for the grant.
+	AccessToken AccessTokenRequest `json:"access_token"`
 
 	// Client Wallet address of the client instance that is making this request.
 	//
@@ -129,10 +133,8 @@ type GrantRequestWithAccessToken struct {
 
 // GrantRequestWithSubject defines model for GrantRequestWithSubject.
 type GrantRequestWithSubject struct {
-	AccessToken *struct {
-		// Access A description of the rights associated with this access token.
-		Access Access `json:"access"`
-	} `json:"access_token,omitempty"`
+	// AccessToken The requested access permissions for the grant.
+	AccessToken *AccessTokenRequest `json:"access_token,omitempty"`
 
 	// Client Wallet address of the client instance that is making this request.
 	//

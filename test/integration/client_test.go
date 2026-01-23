@@ -172,14 +172,11 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 	if err := accessItem.FromAccessIncoming(incomingAccess); err != nil {
 		t.Fatalf("Error creating AccessItem: %v", err)
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"`
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 
 	requestBody := as.GrantRequestWithAccessToken{
-		AccessToken: accessToken,
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -385,13 +382,10 @@ func TestCreateAndGetQuote(t *testing.T) {
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		t.Fatalf("Error creating AccessItem for quote: %v", err)
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"`
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
-		AccessToken: accessToken,
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -669,14 +663,11 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 	if err := accessItem.FromAccessIncoming(incomingAccess); err != nil {
 		return nil, fmt.Errorf("Error creating AccessItem: %w", err)
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"`
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 
 	requestBody := as.GrantRequestWithAccessToken{
-		AccessToken: accessToken,
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -733,13 +724,10 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		return nil, fmt.Errorf("error creating AccessItem for quote: %w", err)
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"`
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
-		AccessToken: accessToken,
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -787,11 +775,6 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 	if err := accessItem.FromAccessOutgoing(outgoingAccess); err != nil {
 		return nil, fmt.Errorf("error creating AccessItem: %w", err)
 	}
-	accessToken := struct {
-		Access as.Access `json:"access"`
-	}{
-		Access: []as.AccessItem{accessItem},
-	}
 	interact := &as.InteractRequest{
 		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
 	}
@@ -801,8 +784,10 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 		op.GrantRequestParams{
 			URL:         environment.SenderOpenPaymentsAuthUrl,
 			RequestBody: as.GrantRequestWithAccessToken{
-				AccessToken: accessToken,
-				Interact:    interact,
+				AccessToken: as.AccessTokenRequest{
+					Access: []as.AccessItem{accessItem},
+				},
+				Interact: interact,
 			},
 		},
 	)
