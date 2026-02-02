@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	openpayments "github.com/interledger/open-payments-go"
+	as "github.com/interledger/open-payments-go/generated/authserver"
 	"github.com/interledger/open-payments-go/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,4 +56,73 @@ func TestGrantCancel(t *testing.T) {
 	assert.Equal(t, spy.ResultCount(), 1)
 	result := spy.Results[0]
 	assert.Equal(t, result.Response.StatusCode, http.StatusNoContent)
+}
+
+func TestGrantRequest(t *testing.T) {
+	reqPath := "/"
+
+	mockResponse := openpayments.Grant{
+		AccessToken: &as.AccessToken{
+			Value:  "test-access-token",
+			Manage: "https://auth.example.com/token/123",
+			Access: []as.AccessItem{},
+		},
+		Continue: as.Continue{
+			Uri: "https://auth.example.com/continue/123",
+			AccessToken: struct {
+				Value string `json:"value"`
+			}{
+				Value: "continue-token",
+			},
+		},
+	}
+
+	mockServer := testutils.Mock(http.MethodPost, reqPath, http.StatusOK, mockResponse)
+	defer mockServer.Close()
+
+	client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(mockServer.Client()))
+	if err != nil {
+		log.Fatalf("Failed to initialize authenticated client: %v", err)
+	}
+
+	ds := func(req *http.Request) testutils.DoSignedResult {
+		res, err := client.DoSigned(req)
+		return testutils.DoSignedResult{Response: res, Error: err}
+	}
+	spy := testutils.SpyOn(ds)
+
+	client.Grant.DoSigned = func(req *http.Request) (*http.Response, error) {
+		result := spy.Func()(req)
+		return result.Response, result.Error
+	}
+
+	incomingAccess := as.AccessIncoming{
+		Type: as.IncomingPayment,
+		Actions: []as.AccessIncomingActions{
+			as.AccessIncomingActionsCreate,
+			as.AccessIncomingActionsRead,
+		},
+	}
+	accessItem := as.AccessItem{}
+	err = accessItem.FromAccessIncoming(incomingAccess)
+	assert.NoError(t, err)
+
+	grant, err := client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+		URL: mockServer.URL + reqPath,
+		RequestBody: as.GrantRequestWithAccessToken{
+			AccessToken: as.AccessTokenRequest{
+				Access: []as.AccessItem{accessItem},
+			},
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.True(t, grant.IsGranted())
+	assert.Equal(t, "test-access-token", grant.AccessToken.Value)
+
+	assert.Equal(t, 1, spy.CallCount())
+	capture := spy.Calls[0]
+	assert.Equal(t, http.MethodPost, capture.Method)
+	assert.Equal(t, "application/json", capture.Header.Get("Content-Type"))
+	assert.Equal(t, mockServer.URL+reqPath, capture.URL.String())
 }
