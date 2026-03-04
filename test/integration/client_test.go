@@ -159,33 +159,20 @@ func TestGetPublicIncomingPayment(t *testing.T) {
 }
 
 func TestGrantRequestIncomingPayment(t *testing.T) {
-	incomingAccess := as.AccessIncoming{
-		Type: as.IncomingPayment,
-		Actions: []as.AccessIncomingActions{
+	params, err := op.NewIncomingPaymentGrantRequestParams(
+		environment.ReceiverOpenPaymentsAuthUrl,
+		[]as.AccessIncomingActions{
 			as.AccessIncomingActionsCreate,
 			as.AccessIncomingActionsRead,
 			as.AccessIncomingActionsList,
 			as.AccessIncomingActionsComplete,
 		},
-	}
-	accessItem := as.AccessItem{}
-	if err := accessItem.FromAccessIncoming(incomingAccess); err != nil {
-		t.Fatalf("Error creating AccessItem: %v", err)
-	}
-
-	requestBody := as.GrantRequestWithAccessToken{
-		AccessToken: as.AccessTokenRequest{
-			Access: []as.AccessItem{accessItem},
-		},
-	}
-
-	grant, err := authedClient.Grant.Request(
-		context.TODO(),
-		op.GrantRequestParams{
-			URL:         environment.ReceiverOpenPaymentsAuthUrl,
-			RequestBody: requestBody,
-		},
 	)
+	if err != nil {
+		t.Fatalf("Error creating grant request params: %v", err)
+	}
+
+	grant, err := authedClient.Grant.Request(context.TODO(), params)
 	if err != nil {
 		t.Fatalf("Error with grant request: %v", err)
 	}
@@ -369,32 +356,15 @@ func TestCreateAndGetQuote(t *testing.T) {
 		t.Fatal("New incoming payment ID is nil")
 	}
 
-	quoteAccess := as.AccessQuote{
-		Type: as.Quote,
-		Actions: []as.AccessQuoteActions{
-			// TODO: address how these arent scoped to quotes?
-			// anti-corruption layer for the generated types?
-			as.Create,
-			as.Read,
-		},
-	}
-	accessItem := as.AccessItem{}
-	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
-		t.Fatalf("Error creating AccessItem for quote: %v", err)
-	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
-		AccessToken: as.AccessTokenRequest{
-			Access: []as.AccessItem{accessItem},
-		},
+	quoteParams, err := op.NewQuoteGrantRequestParams(
+		environment.SenderOpenPaymentsAuthUrl,
+		[]as.AccessQuoteActions{as.Create, as.Read},
+	)
+	if err != nil {
+		t.Fatalf("Error creating quote grant request params: %v", err)
 	}
 
-	quoteGrant, err := authedClient.Grant.Request(
-		context.TODO(),
-		op.GrantRequestParams{
-			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: quoteGrantRequestBody,
-		},
-	)
+	quoteGrant, err := authedClient.Grant.Request(context.TODO(), quoteParams)
 
 	if err != nil {
 		t.Fatalf("Error requesting grant for quote: %v", err)
@@ -650,36 +620,22 @@ func TestRevokeToken(t *testing.T) {
 //
 // ==============
 func newIncomingPaymentGrant() (*op.Grant, error) {
-	incomingAccess := as.AccessIncoming{
-		Type: as.IncomingPayment,
-		Actions: []as.AccessIncomingActions{
+	params, err := op.NewIncomingPaymentGrantRequestParams(
+		environment.ReceiverOpenPaymentsAuthUrl,
+		[]as.AccessIncomingActions{
 			as.AccessIncomingActionsCreate,
 			as.AccessIncomingActionsRead,
 			as.AccessIncomingActionsList,
 			as.AccessIncomingActionsComplete,
 		},
-	}
-	accessItem := as.AccessItem{}
-	if err := accessItem.FromAccessIncoming(incomingAccess); err != nil {
-		return nil, fmt.Errorf("Error creating AccessItem: %w", err)
-	}
-
-	requestBody := as.GrantRequestWithAccessToken{
-		AccessToken: as.AccessTokenRequest{
-			Access: []as.AccessItem{accessItem},
-		},
-	}
-
-	grant, err := authedClient.Grant.Request(
-		context.TODO(),
-		op.GrantRequestParams{
-			URL:         environment.ReceiverOpenPaymentsAuthUrl,
-			RequestBody: requestBody,
-		},
 	)
-
 	if err != nil {
-		return nil, fmt.Errorf("Error requesting grant: %w", err)
+		return nil, fmt.Errorf("error creating grant request params: %w", err)
+	}
+
+	grant, err := authedClient.Grant.Request(context.TODO(), params)
+	if err != nil {
+		return nil, fmt.Errorf("error requesting grant: %w", err)
 	}
 
 	return &grant, nil
@@ -711,33 +667,15 @@ func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error)
 }
 
 func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error) {
-	quoteAccess := as.AccessQuote{
-		Type: as.Quote,
-		Actions: []as.AccessQuoteActions{
-			// TODO: address how these arent scoped to quotes?
-			// anti-corruption layer for the generated types?
-			as.Create,
-			as.Read,
-		},
-	}
-	accessItem := as.AccessItem{}
-	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
-		return nil, fmt.Errorf("error creating AccessItem for quote: %w", err)
-	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
-		AccessToken: as.AccessTokenRequest{
-			Access: []as.AccessItem{accessItem},
-		},
-	}
-
-	quoteGrant, err := authedClient.Grant.Request(
-		context.TODO(),
-		op.GrantRequestParams{
-			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: quoteGrantRequestBody,
-		},
+	quoteParams, err := op.NewQuoteGrantRequestParams(
+		environment.SenderOpenPaymentsAuthUrl,
+		[]as.AccessQuoteActions{as.Create, as.Read},
 	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating quote grant request params: %w", err)
+	}
 
+	quoteGrant, err := authedClient.Grant.Request(context.TODO(), quoteParams)
 	if err != nil {
 		return nil, fmt.Errorf("error requesting grant for quote: %w", err)
 	}
@@ -762,35 +700,23 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 }
 
 func newOutgoingPaymentGrant() (*op.Grant, error) {
-	outgoingAccess := as.AccessOutgoing{
-		Type: as.OutgoingPayment,
-		Actions: []as.AccessOutgoingActions{
+	params, err := op.NewOutgoingPaymentGrantRequestParams(
+		environment.SenderOpenPaymentsAuthUrl,
+		environment.ResolvedSenderWalletAddressUrl,
+		[]as.AccessOutgoingActions{
 			as.AccessOutgoingActionsCreate,
 			as.AccessOutgoingActionsRead,
 			as.AccessOutgoingActionsList,
 		},
-		Identifier: environment.ResolvedSenderWalletAddressUrl,
-	}
-	accessItem := as.AccessItem{}
-	if err := accessItem.FromAccessOutgoing(outgoingAccess); err != nil {
-		return nil, fmt.Errorf("error creating AccessItem: %w", err)
-	}
-	interact := &as.InteractRequest{
-		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+		op.WithInteract(&as.InteractRequest{
+			Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+		}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating grant request params: %w", err)
 	}
 
-	grant, err := authedClient.Grant.Request(
-		context.TODO(),
-		op.GrantRequestParams{
-			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: as.GrantRequestWithAccessToken{
-				AccessToken: as.AccessTokenRequest{
-					Access: []as.AccessItem{accessItem},
-				},
-				Interact: interact,
-			},
-		},
-	)
+	grant, err := authedClient.Grant.Request(context.TODO(), params)
 	if err != nil {
 		return nil, fmt.Errorf("error requesting grant: %w", err)
 	}
