@@ -134,7 +134,7 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Grant{}, fmt.Errorf("continue request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return Grant{}, newOpError(resp, "continue grant")
 	}
 
 	var grantResponse Grant
@@ -163,7 +163,7 @@ func (gs *GrantService) Cancel(ctx context.Context, params GrantCancelParams) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("cancel request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return newOpError(resp, "cancel grant")
 	}
 
 	return nil
