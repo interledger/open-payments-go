@@ -37,7 +37,7 @@ func (wa *WalletAddressService) Get(ctx context.Context, params WalletAddressGet
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return was.WalletAddress{}, fmt.Errorf("failed to get wallet address: %s", resp.Status)
+		return was.WalletAddress{}, newOpError(resp, "get wallet address")
 	}
 
 	var walletAddressResponse was.WalletAddress
@@ -64,7 +64,7 @@ func (wa *WalletAddressService) GetKeys(ctx context.Context, params WalletAddres
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return was.JsonWebKeySet{}, fmt.Errorf("failed to get json web keys: %s", resp.Status)
+		return was.JsonWebKeySet{}, newOpError(resp, "get wallet address keys")
 	}
 
 	var keyResponse was.JsonWebKeySet
@@ -91,7 +91,7 @@ func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, params Walle
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return was.DidDocument{}, fmt.Errorf("failed to get DID document: %s", resp.Status)
+		return was.DidDocument{}, newOpError(resp, "get DID document")
 	}
 
 	var DIDDocumentResponse was.DidDocument

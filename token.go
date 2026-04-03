@@ -46,7 +46,7 @@ func (ts *TokenService) Rotate(ctx context.Context, params TokenRotateParams) (a
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return as.AccessToken{}, fmt.Errorf("rotate request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return as.AccessToken{}, newOpError(resp, "rotate token")
 	}
 
 	var response struct {
@@ -78,7 +78,7 @@ func (ts *TokenService) Revoke(ctx context.Context, params TokenRevokeParams) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("revoke request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return newOpError(resp, "revoke token")
 	}
 
 	return nil
