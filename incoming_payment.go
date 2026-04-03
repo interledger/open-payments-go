@@ -86,7 +86,7 @@ func getPublic(ctx context.Context, doUnsigned RequestDoer, url string) (rs.Publ
 	var incomingPayment rs.PublicIncomingPayment
 	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
 	if err != nil {
-		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return incomingPayment, nil
@@ -113,7 +113,7 @@ func (ip *IncomingPaymentService) Get(ctx context.Context, params IncomingPaymen
 	var incomingPayment rs.IncomingPaymentWithMethods
 	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
 	if err != nil {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return incomingPayment, nil
@@ -155,13 +155,13 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 	var listResponse IncomingPaymentListResponse
 	err = json.NewDecoder(resp.Body).Decode(&listResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode response body: %s", err)
+		return nil, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return &listResponse, nil
 }
 
-// TODO: should Create handle adding /incoming-paymnets or nah? php and rust do, ts doesnt
+// TODO: should Create handle adding /incoming-payments or nah? php and rust do, ts doesnt
 func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPaymentCreateParams) (rs.IncomingPaymentWithMethods, error) {
 	payloadBytes, err := json.Marshal(params.Payload)
 	if err != nil {
@@ -176,7 +176,7 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 		return rs.IncomingPaymentWithMethods{}, err
 	}
 
-	// TODO: do this more centrally? in DoSigned when content-legnth > 0?
+	// TODO: do this more centrally? in DoSigned when content-length > 0?
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
@@ -193,7 +193,7 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 	var incomingPayment rs.IncomingPaymentWithMethods
 	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
 	if err != nil {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return incomingPayment, nil

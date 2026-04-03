@@ -50,7 +50,7 @@ func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quot
 	var quote rs.Quote
 	err = json.NewDecoder(resp.Body).Decode(&quote)
 	if err != nil {
-		return rs.Quote{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.Quote{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return quote, nil
@@ -86,7 +86,7 @@ func (ip *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (r
 	var quote rs.Quote
 	err = json.NewDecoder(resp.Body).Decode(&quote)
 	if err != nil {
-		return rs.Quote{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.Quote{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return quote, nil
