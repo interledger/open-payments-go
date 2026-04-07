@@ -560,8 +560,13 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 		t.Errorf("Mismatched wallet addresses: got %s, want %s", *retrievedPayment.WalletAddress, *newOutgoingPayment.WalletAddress)
 	}
 
+	incomingPaymentURL, err := environment.RewriteURLIfNeeded(*newIncomingPayment.Id)
+	if err != nil {
+		t.Fatalf("Could not rewrite URL from incoming payment: %v", err)
+	}
+
 	incomingPayment, err := waitForIncomingPaymentCompletion(
-    *newIncomingPayment.Id,
+    incomingPaymentURL,
     incomingPaymentGrant.AccessToken.Value,
     authedClient,
     1*time.Second,
