@@ -12,14 +12,105 @@ import (
 	as "github.com/interledger/open-payments-go/generated/authserver"
 )
 
-// TODO: Improve cumbersome work of forming grant requests. See tests.
-// - make new NewIncomingPaymentGrantRequest, etc. methods which
-//   just have parmams for access items (and what else? just interact i guess?).
-//   This means the methods need to be quite a bit smarter about grant requests but
-//   that seems like the core purpose of the sdk - abstract away the complexity of sending
-//   the request.
-// - otherwise make helpers? ie for making Incoming Payment access token.
-//   NewIncomingPaymentAccessToken that takes access items (anything else? maybe not)
+// GrantRequestOption is a functional option for customizing a grant request.
+type GrantRequestOption func(*as.GrantRequestWithAccessToken)
+
+// WithInteract sets the interact field on the grant request.
+func WithInteract(interact *as.InteractRequest) GrantRequestOption {
+	return func(req *as.GrantRequestWithAccessToken) {
+		req.Interact = interact
+	}
+}
+
+// WithSubject sets the subject field on the grant request.
+func WithSubject(subject *as.Subject) GrantRequestOption {
+	return func(req *as.GrantRequestWithAccessToken) {
+		req.Subject = subject
+	}
+}
+
+// NewIncomingPaymentGrantRequestParams creates a GrantRequestParams for an incoming payment grant.
+func NewIncomingPaymentGrantRequestParams(
+	url string,
+	actions []as.AccessIncomingActions,
+	opts ...GrantRequestOption,
+) (GrantRequestParams, error) {
+	access := as.AccessIncoming{
+		Type:    as.IncomingPayment,
+		Actions: actions,
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessIncoming(access); err != nil {
+		return GrantRequestParams{}, fmt.Errorf("failed to create access item: %w", err)
+	}
+
+	body := as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+	}
+	for _, opt := range opts {
+		opt(&body)
+	}
+
+	return GrantRequestParams{URL: url, RequestBody: body}, nil
+}
+
+// NewQuoteGrantRequestParams creates a GrantRequestParams for a quote grant.
+func NewQuoteGrantRequestParams(
+	url string,
+	actions []as.AccessQuoteActions,
+	opts ...GrantRequestOption,
+) (GrantRequestParams, error) {
+	access := as.AccessQuote{
+		Type:    as.Quote,
+		Actions: actions,
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessQuote(access); err != nil {
+		return GrantRequestParams{}, fmt.Errorf("failed to create access item: %w", err)
+	}
+
+	body := as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+	}
+	for _, opt := range opts {
+		opt(&body)
+	}
+
+	return GrantRequestParams{URL: url, RequestBody: body}, nil
+}
+
+// NewOutgoingPaymentGrantRequestParams creates a GrantRequestParams for an outgoing payment grant.
+func NewOutgoingPaymentGrantRequestParams(
+	url string,
+	identifier string,
+	actions []as.AccessOutgoingActions,
+	opts ...GrantRequestOption,
+) (GrantRequestParams, error) {
+	access := as.AccessOutgoing{
+		Type:       as.OutgoingPayment,
+		Actions:    actions,
+		Identifier: identifier,
+	}
+	accessItem := as.AccessItem{}
+	if err := accessItem.FromAccessOutgoing(access); err != nil {
+		return GrantRequestParams{}, fmt.Errorf("failed to create access item: %w", err)
+	}
+
+	body := as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+	}
+	for _, opt := range opts {
+		opt(&body)
+	}
+
+	return GrantRequestParams{URL: url, RequestBody: body}, nil
+}
 
 type GrantService struct {
 	DoSigned RequestDoer
