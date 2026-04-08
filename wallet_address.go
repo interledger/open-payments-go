@@ -43,7 +43,7 @@ func (wa *WalletAddressService) Get(ctx context.Context, params WalletAddressGet
 	var walletAddressResponse was.WalletAddress
 	err = json.NewDecoder(resp.Body).Decode(&walletAddressResponse)
 	if err != nil {
-		return was.WalletAddress{}, fmt.Errorf("failed to decoding response body: %s", err)
+		return was.WalletAddress{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return walletAddressResponse, nil
@@ -70,7 +70,7 @@ func (wa *WalletAddressService) GetKeys(ctx context.Context, params WalletAddres
 	var keyResponse was.JsonWebKeySet
 	err = json.NewDecoder(resp.Body).Decode(&keyResponse)
 	if err != nil {
-		return was.JsonWebKeySet{}, fmt.Errorf("failed to decoding response body: %s", err)
+		return was.JsonWebKeySet{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return keyResponse, nil
@@ -97,7 +97,7 @@ func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, params Walle
 	var DIDDocumentResponse was.DidDocument
 	err = json.NewDecoder(resp.Body).Decode(&DIDDocumentResponse)
 	if err != nil {
-		return was.DidDocument{}, fmt.Errorf("failed to decoding response body: %s", err)
+		return was.DidDocument{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return DIDDocumentResponse, nil
