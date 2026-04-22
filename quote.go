@@ -44,7 +44,7 @@ func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quot
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.Quote{}, fmt.Errorf("failed to get quote: %s", resp.Status)
+		return rs.Quote{}, newOpError(resp, "get quote")
 	}
 
 	var quote rs.Quote
@@ -80,7 +80,7 @@ func (ip *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (r
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.Quote{}, fmt.Errorf("failed to create quote: %s", resp.Status)
+		return rs.Quote{}, newOpError(resp, "create quote")
 	}
 
 	var quote rs.Quote

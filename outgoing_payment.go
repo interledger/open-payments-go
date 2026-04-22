@@ -61,7 +61,7 @@ func (op *OutgoingPaymentService) Get(ctx context.Context, params OutgoingPaymen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to get outgoing payment: %s", resp.Status)
+		return rs.OutgoingPayment{}, newOpError(resp, "get outgoing payment")
 	}
 
 	var outgoingPayment rs.OutgoingPayment
@@ -107,7 +107,7 @@ func (op *OutgoingPaymentService) List(ctx context.Context, params OutgoingPayme
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list outgoing payments: %s", resp.Status)
+		return nil, newOpError(resp, "list outgoing payments")
 	}
 
 	var listResponse OutgoingPaymentListResponse
@@ -148,7 +148,7 @@ func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPay
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to create outgoing payment: %s", resp.Status)
+		return rs.OutgoingPayment{}, newOpError(resp, "create outgoing payment")
 	}
 
 	var outgoingPayment rs.OutgoingPayment
