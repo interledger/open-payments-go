@@ -2,7 +2,7 @@ module github.com/interledger/open-payments-go
 
 go 1.22.5
 
-toolchain go1.24.4
+toolchain go1.26.3
 
 require (
 	github.com/go-rod/rod v0.116.2
