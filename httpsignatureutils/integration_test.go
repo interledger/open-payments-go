@@ -18,9 +18,9 @@ func TestCreateAndValidateSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
 
-	sigHeaders, err := CreateHeaders(SignOptions{
+	contentHeaders := CreateContentHeaders(body.Bytes())
+	sigHeaders, err := CreateSignatureHeaders(SignOptions{
 		Request:    req,
 		PrivateKey: privateKey,
 		KeyID:      "test-key",
@@ -29,6 +29,9 @@ func TestCreateAndValidateSignature(t *testing.T) {
 		t.Fatalf("failed to sign request: %v", err)
 	}
 
+	req.Header.Set("Content-Digest", contentHeaders.ContentDigest)
+	req.Header.Set("Content-Length", contentHeaders.ContentLength)
+	req.Header.Set("Content-Type", contentHeaders.ContentType)
 	req.Header.Set("Signature", sigHeaders.Signature)
 	req.Header.Set("Signature-Input", sigHeaders.SignatureInput)
 
