@@ -133,12 +133,13 @@ func CreateHeaders(opts SignOptions) (*ContentAndSignatureHeaders, error) {
 			return nil, fmt.Errorf("failed to close request body: %w", err)
 		}
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
 
+	contentLen := len(bodyBytes)
 	if len(bodyBytes) > 0 {
 		req.Header.Set("Content-Digest", createContentDigest(bodyBytes))
 		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+		req.Header.Set("Content-Length", fmt.Sprintf("%d", contentLen))
 	}
 
 	sigHeaders, err := CreateSignatureHeaders(opts)

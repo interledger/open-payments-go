@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
+	"net/url"
 
 	rs "github.com/interledger/open-payments-go/generated/resourceserver"
 )
@@ -29,7 +29,7 @@ type QuoteCreateParams struct {
 	Payload any
 }
 
-func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quote, error) {
+func (qs *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quote, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
 	if err != nil {
 		return rs.Quote{}, err
@@ -37,7 +37,7 @@ func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quot
 
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
-	resp, err := ip.DoSigned(req)
+	resp, err := qs.DoSigned(req)
 	if err != nil {
 		return rs.Quote{}, err
 	}
@@ -56,24 +56,25 @@ func (ip *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quot
 	return quote, nil
 }
 
-func (ip *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (rs.Quote, error) {
+func (qs *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (rs.Quote, error) {
 	payloadBytes, err := json.Marshal(params.Payload)
 	if err != nil {
 		return rs.Quote{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	baseURL := strings.TrimRight(params.BaseURL, "/")
-	fullURL := fmt.Sprintf("%s/quotes", baseURL)
+	fullURL, err := url.JoinPath(params.BaseURL, "quotes")
+	if err != nil {
+		return rs.Quote{}, fmt.Errorf("failed to construct URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return rs.Quote{}, err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
-	resp, err := ip.DoSigned(req)
+	resp, err := qs.DoSigned(req)
 	if err != nil {
 		return rs.Quote{}, err
 	}

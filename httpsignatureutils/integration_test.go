@@ -39,19 +39,19 @@ func TestCreateAndValidateSignature(t *testing.T) {
 		t.Fatalf("signature validation failed: %v", err)
 	}
 
-		// negative test - bad signature should fail
-		t.Run("InvalidSignature", func(t *testing.T) {
-			// flip bits of first byte
-			badSig := []byte(sigHeaders.Signature)
-			badSig[0] ^= 0xFF
-	
-			req.Header.Set("Signature", string(badSig))
-	
-			err = ValidateSignature(
-				NewValidationOptions(req, req.Header, publicKey),
-			)
-			if err == nil {
-				t.Fatal("expected validation to fail with bad signature, but it passed")
-			}
-		})
+	// negative test - bad signature should fail
+	t.Run("InvalidSignature", func(t *testing.T) {
+		// flip bits of first byte
+		badSig := []byte(sigHeaders.Signature)
+		badSig[0] ^= 0xFF
+
+		req.Header.Set("Signature", string(badSig))
+
+		err = ValidateSignature(
+			NewValidationOptions(req, req.Header, publicKey),
+		)
+		if err == nil {
+			t.Fatal("expected validation to fail with bad signature, but it passed")
+		}
+	})
 }

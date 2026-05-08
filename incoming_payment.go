@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	rs "github.com/interledger/open-payments-go/generated/resourceserver"
 )
@@ -132,8 +131,11 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 		query.Set("cursor", params.Pagination.Cursor)
 	}
 
-	base := strings.TrimRight(params.BaseURL, "/")
-	fullURL := fmt.Sprintf("%s/incoming-payments?%s", base, query.Encode())
+	base, err := url.JoinPath(params.BaseURL, "incoming-payments")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct URL: %w", err)
+	}
+	fullURL := fmt.Sprintf("%s?%s", base, query.Encode())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
@@ -168,16 +170,16 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	baseURL := strings.TrimRight(params.BaseURL, "/")
-	fullURL := fmt.Sprintf("%s/incoming-payments", baseURL)
+	fullURL, err := url.JoinPath(params.BaseURL, "incoming-payments")
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to construct URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return rs.IncomingPaymentWithMethods{}, err
 	}
 
-	// TODO: do this more centrally? in DoSigned when content-legnth > 0?
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := ip.DoSigned(req)
@@ -200,7 +202,10 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 }
 
 func (ip *IncomingPaymentService) Complete(ctx context.Context, params IncomingPaymentCompleteParams) (rs.IncomingPaymentWithMethods, error) {
-	fullURL := fmt.Sprintf("%s/complete", strings.TrimRight(params.URL, "/"))
+	fullURL, err := url.JoinPath(params.URL, "complete")
+	if err != nil {
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to construct URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, nil)
 	if err != nil {

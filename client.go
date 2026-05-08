@@ -158,11 +158,16 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 		}
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+		contentLen := len(bodyBytes)
+		req.Header.Set("Content-Length", fmt.Sprintf("%d", contentLen))
 
 		contentDigest := createContentDigest(bodyBytes)
 
 		req.Header.Set("Content-Digest", contentDigest)
+
+		if contentLen > 0 {
+			req.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	sigHeaders, err := httpsignatureutils.CreateSignatureHeaders(httpsignatureutils.SignOptions{

@@ -74,7 +74,6 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := gs.DoSigned(req)
 	if err != nil {
@@ -111,7 +110,7 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 
 	requestBody := map[string]string{}
 
-	if (params.InteractRef != "") {
+	if params.InteractRef != "" {
 		requestBody["interact_ref"] = params.InteractRef
 	}
 
@@ -124,7 +123,7 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to create continue request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+
 	req.Header.Set("Authorization", "GNAP "+params.AccessToken)
 
 	resp, err := gs.DoSigned(req)
