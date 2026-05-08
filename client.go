@@ -3,8 +3,6 @@ package openpayments
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/sha512"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -136,13 +134,6 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 	return c, nil
 }
 
-func createContentDigest(body []byte) string {
-	hash := sha512.Sum512(body)
-	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
-	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
-	return digest
-}
-
 func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
 	if c.preSignHook != nil {
 		c.preSignHook(req)
@@ -158,11 +149,12 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 		}
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
-
-		contentDigest := createContentDigest(bodyBytes)
-
-		req.Header.Set("Content-Digest", contentDigest)
+		if len(bodyBytes) > 0 {
+			contentHeaders := httpsignatureutils.CreateContentHeaders(bodyBytes)
+			req.Header.Set("Content-Digest", contentHeaders.ContentDigest)
+			req.Header.Set("Content-Length", contentHeaders.ContentLength)
+			req.Header.Set("Content-Type", contentHeaders.ContentType)
+		}
 	}
 
 	sigHeaders, err := httpsignatureutils.CreateSignatureHeaders(httpsignatureutils.SignOptions{
@@ -181,29 +173,5 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 		c.postSignHook(req)
 	}
 
-	return c.httpClient.Do(req)
+	return c.httpClient.Do(req) // #nosec G704 -- client SDK: request URLs are supplied by the library consumer
 }
-
-// TODO: use or lose this DoSigned implementation. Did not like the (more or less) necessary side effect
-// of CreateHeaders mutating the request. CreateHeaders has to add the content digest/length before signing.
-// Could clone req in CreateHeaders but that seemed a bit heavy and potentially complicated. Alternatively
-// could maybe just rename? SetSignatureHeaders? Just feels like maybe thats doing too much in httpsignatureutils.
-
-// func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error) {
-// 	headers, err := httpsignatureutils.CreateHeaders(httpsignatureutils.SignOptions{
-// 		Request:    req,
-// 		PrivateKey: c.privateKey,
-// 		KeyID:      c.keyId,
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// This aren't actually necessary to set because CreateHeaders does it.
-// 	// req.Header.Set("Content-Length", headers.ContentLength)
-// 	// req.Header.Set("Content-Digest", headers.ContentDigest)
-// 	req.Header.Set("Signature", fmt.Sprintf("sig1=:%s:", headers.Signature))
-// 	req.Header.Set("Signature-Input", headers.SignatureInput)
-
-// 	return c.httpClient.Do(req)
-// }

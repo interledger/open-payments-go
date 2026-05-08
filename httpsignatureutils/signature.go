@@ -1,14 +1,13 @@
 package httpsignatureutils
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,11 +16,10 @@ var (
 	ErrMissingRequiredHeader = errors.New("missing required header")
 )
 
-type ContentAndSignatureHeaders struct {
-	Signature      string
-	SignatureInput string
-	ContentDigest  string
-	ContentLength  string
+type ContentHeaders struct {
+	ContentDigest string
+	ContentLength string
+	ContentType   string
 }
 
 type SignatureHeaders struct {
@@ -33,6 +31,21 @@ type SignOptions struct {
 	Request    *http.Request
 	PrivateKey ed25519.PrivateKey
 	KeyID      string
+}
+
+func createContentDigest(body []byte) string {
+	hash := sha512.Sum512(body)
+	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
+	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
+	return digest
+}
+
+func CreateContentHeaders(body []byte) ContentHeaders {
+	return ContentHeaders{
+		ContentDigest: createContentDigest(body),
+		ContentLength: strconv.Itoa(len(body)),
+		ContentType:   "application/json",
+	}
 }
 
 func createSignatureBaseString(req *http.Request, components []string, created int64, keyID string) (string, error) {
@@ -110,46 +123,5 @@ func CreateSignatureHeaders(opts SignOptions) (*SignatureHeaders, error) {
 	return &SignatureHeaders{
 		Signature:      signature,
 		SignatureInput: signatureInput,
-	}, nil
-}
-
-func createContentDigest(body []byte) string {
-	hash := sha512.Sum512(body)
-	b64Hash := base64.StdEncoding.EncodeToString(hash[:])
-	digest := fmt.Sprintf("sha-512=:%s:", b64Hash)
-	return digest
-}
-
-func CreateHeaders(opts SignOptions) (*ContentAndSignatureHeaders, error) {
-	req := opts.Request
-	var bodyBytes []byte
-	if req.Body != nil {
-		var err error
-		bodyBytes, err = io.ReadAll(req.Body)
-		if err != nil {
-			return nil, err
-		}
-		if err := req.Body.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close request body: %w", err)
-		}
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	}
-
-	if len(bodyBytes) > 0 {
-		req.Header.Set("Content-Digest", createContentDigest(bodyBytes))
-		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
-	}
-
-	sigHeaders, err := CreateSignatureHeaders(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ContentAndSignatureHeaders{
-		Signature:      sigHeaders.Signature,
-		SignatureInput: sigHeaders.SignatureInput,
-		ContentDigest:  req.Header.Get("Content-Digest"),
-		ContentLength:  req.Header.Get("Content-Length"),
 	}, nil
 }

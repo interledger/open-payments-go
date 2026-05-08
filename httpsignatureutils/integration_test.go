@@ -18,9 +18,9 @@ func TestCreateAndValidateSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
 
-	sigHeaders, err := CreateHeaders(SignOptions{
+	contentHeaders := CreateContentHeaders(body.Bytes())
+	sigHeaders, err := CreateSignatureHeaders(SignOptions{
 		Request:    req,
 		PrivateKey: privateKey,
 		KeyID:      "test-key",
@@ -29,6 +29,9 @@ func TestCreateAndValidateSignature(t *testing.T) {
 		t.Fatalf("failed to sign request: %v", err)
 	}
 
+	req.Header.Set("Content-Digest", contentHeaders.ContentDigest)
+	req.Header.Set("Content-Length", contentHeaders.ContentLength)
+	req.Header.Set("Content-Type", contentHeaders.ContentType)
 	req.Header.Set("Signature", sigHeaders.Signature)
 	req.Header.Set("Signature-Input", sigHeaders.SignatureInput)
 
@@ -39,19 +42,19 @@ func TestCreateAndValidateSignature(t *testing.T) {
 		t.Fatalf("signature validation failed: %v", err)
 	}
 
-		// negative test - bad signature should fail
-		t.Run("InvalidSignature", func(t *testing.T) {
-			// flip bits of first byte
-			badSig := []byte(sigHeaders.Signature)
-			badSig[0] ^= 0xFF
-	
-			req.Header.Set("Signature", string(badSig))
-	
-			err = ValidateSignature(
-				NewValidationOptions(req, req.Header, publicKey),
-			)
-			if err == nil {
-				t.Fatal("expected validation to fail with bad signature, but it passed")
-			}
-		})
+	// negative test - bad signature should fail
+	t.Run("InvalidSignature", func(t *testing.T) {
+		// flip bits of first byte
+		badSig := []byte(sigHeaders.Signature)
+		badSig[0] ^= 0xFF
+
+		req.Header.Set("Signature", string(badSig))
+
+		err = ValidateSignature(
+			NewValidationOptions(req, req.Header, publicKey),
+		)
+		if err == nil {
+			t.Fatal("expected validation to fail with bad signature, but it passed")
+		}
+	})
 }

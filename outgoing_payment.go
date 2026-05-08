@@ -90,8 +90,11 @@ func (op *OutgoingPaymentService) List(ctx context.Context, params OutgoingPayme
 		query.Set("cursor", params.Pagination.Cursor)
 	}
 
-	base := strings.TrimRight(params.BaseURL, "/")
-	fullURL := fmt.Sprintf("%s/outgoing-payments?%s", base, query.Encode())
+	base, err := url.JoinPath(params.BaseURL, "outgoing-payments")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct URL: %w", err)
+	}
+	fullURL := fmt.Sprintf("%s?%s", base, query.Encode())
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
@@ -130,15 +133,16 @@ func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPay
 		return rs.OutgoingPayment{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	baseURL := strings.TrimRight(params.BaseURL, "/")
-	fullURL := fmt.Sprintf("%s/outgoing-payments", baseURL)
+	fullURL, err := url.JoinPath(params.BaseURL, "outgoing-payments")
+	if err != nil {
+		return rs.OutgoingPayment{}, fmt.Errorf("failed to construct URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return rs.OutgoingPayment{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := op.DoSigned(req)
