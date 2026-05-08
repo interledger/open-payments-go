@@ -173,5 +173,5 @@ func (c *AuthenticatedClient) DoSigned(req *http.Request) (*http.Response, error
 		c.postSignHook(req)
 	}
 
-	return c.httpClient.Do(req)
+	return c.httpClient.Do(req) // #nosec G704 -- client SDK: request URLs are supplied by the library consumer
 }
