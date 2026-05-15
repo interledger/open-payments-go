@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -82,13 +81,7 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		bodyStr := strings.TrimSpace(string(bodyBytes))
-
-		return Grant{}, fmt.Errorf(
-			"failed to perform grant request: %s\nURL: %s\nRequest body: %s\nResponse body: %s",
-			resp.Status, req.URL, string(reqBodyBytes), bodyStr,
-		)
+		return Grant{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var grantResponse Grant
@@ -133,7 +126,7 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Grant{}, fmt.Errorf("continue request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return Grant{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var grantResponse Grant
@@ -162,7 +155,7 @@ func (gs *GrantService) Cancel(ctx context.Context, params GrantCancelParams) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("cancel request failed with status %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return newClientErrorFromResponse(req, resp)
 	}
 
 	return nil

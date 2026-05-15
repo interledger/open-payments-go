@@ -79,13 +79,13 @@ func getPublic(ctx context.Context, doUnsigned RequestDoer, url string) (rs.Publ
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+		return rs.PublicIncomingPayment{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var incomingPayment rs.PublicIncomingPayment
 	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
 	if err != nil {
-		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.PublicIncomingPayment{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return incomingPayment, nil
@@ -106,13 +106,13 @@ func (ip *IncomingPaymentService) Get(ctx context.Context, params IncomingPaymen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+		return rs.IncomingPaymentWithMethods{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var incomingPayment rs.IncomingPaymentWithMethods
 	err = json.NewDecoder(resp.Body).Decode(&incomingPayment)
 	if err != nil {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return incomingPayment, nil
@@ -151,7 +151,7 @@ func (ip *IncomingPaymentService) List(ctx context.Context, params IncomingPayme
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get incoming payment: %s", resp.Status)
+		return nil, newClientErrorFromResponse(req, resp)
 	}
 
 	var listResponse IncomingPaymentListResponse
@@ -189,7 +189,7 @@ func (ip *IncomingPaymentService) Create(ctx context.Context, params IncomingPay
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to create incoming payment: %s", resp.Status)
+		return rs.IncomingPaymentWithMethods{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var incomingPayment rs.IncomingPaymentWithMethods
@@ -221,7 +221,7 @@ func (ip *IncomingPaymentService) Complete(ctx context.Context, params IncomingP
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.IncomingPaymentWithMethods{}, fmt.Errorf("failed to complete incoming payment: %s", resp.Status)
+		return rs.IncomingPaymentWithMethods{}, newClientErrorFromResponse(req, resp)
 	}
 
 	// TODO: add the validation like TS? php/rust. Not sure if we should on principle.
