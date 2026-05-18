@@ -44,13 +44,13 @@ func (qs *QuoteService) Get(ctx context.Context, params QuoteGetParams) (rs.Quot
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return rs.Quote{}, fmt.Errorf("failed to get quote: %s", resp.Status)
+		return rs.Quote{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var quote rs.Quote
 	err = json.NewDecoder(resp.Body).Decode(&quote)
 	if err != nil {
-		return rs.Quote{}, fmt.Errorf("failed to decode response body: %s", err)
+		return rs.Quote{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return quote, nil
@@ -81,7 +81,7 @@ func (qs *QuoteService) Create(ctx context.Context, params QuoteCreateParams) (r
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.Quote{}, fmt.Errorf("failed to create quote: %s", resp.Status)
+		return rs.Quote{}, newClientErrorFromResponse(req, resp)
 	}
 
 	var quote rs.Quote

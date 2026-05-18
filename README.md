@@ -2,7 +2,7 @@
 
 **Requires:**
 
-- go1.21+
+- go1.22+
 
 ## OpenAPI Specs
 
