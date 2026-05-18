@@ -126,3 +126,83 @@ func TestGrantRequest(t *testing.T) {
 	assert.Equal(t, "application/json", capture.Header.Get("Content-Type"))
 	assert.Equal(t, mockServer.URL+reqPath, capture.URL.String())
 }
+
+func TestNewIncomingPaymentGrantRequestParams(t *testing.T) {
+	url := "https://auth.example.com"
+	actions := []as.AccessIncomingActions{
+		as.AccessIncomingActionsCreate,
+		as.AccessIncomingActionsRead,
+	}
+
+	params, err := openpayments.NewIncomingPaymentGrantRequestParams(url, actions)
+	assert.NoError(t, err)
+	assert.Equal(t, url, params.URL)
+	assert.Len(t, params.RequestBody.AccessToken.Access, 1)
+
+	// Verify the access item was constructed correctly by round-tripping
+	incoming, err := params.RequestBody.AccessToken.Access[0].AsAccessIncoming()
+	assert.NoError(t, err)
+	assert.Equal(t, as.IncomingPayment, incoming.Type)
+	assert.Equal(t, actions, incoming.Actions)
+}
+
+func TestNewQuoteGrantRequestParams(t *testing.T) {
+	url := "https://auth.example.com"
+	actions := []as.AccessQuoteActions{as.Create, as.Read}
+
+	params, err := openpayments.NewQuoteGrantRequestParams(url, actions)
+	assert.NoError(t, err)
+	assert.Equal(t, url, params.URL)
+	assert.Len(t, params.RequestBody.AccessToken.Access, 1)
+
+	quote, err := params.RequestBody.AccessToken.Access[0].AsAccessQuote()
+	assert.NoError(t, err)
+	assert.Equal(t, as.Quote, quote.Type)
+	assert.Equal(t, actions, quote.Actions)
+}
+
+func TestNewOutgoingPaymentGrantRequestParams(t *testing.T) {
+	url := "https://auth.example.com"
+	identifier := "https://wallet.example.com/.well-known/pay"
+	actions := []as.AccessOutgoingActions{
+		as.AccessOutgoingActionsCreate,
+		as.AccessOutgoingActionsRead,
+	}
+
+	params, err := openpayments.NewOutgoingPaymentGrantRequestParams(url, identifier, actions)
+	assert.NoError(t, err)
+	assert.Equal(t, url, params.URL)
+	assert.Len(t, params.RequestBody.AccessToken.Access, 1)
+
+	outgoing, err := params.RequestBody.AccessToken.Access[0].AsAccessOutgoing()
+	assert.NoError(t, err)
+	assert.Equal(t, as.OutgoingPayment, outgoing.Type)
+	assert.Equal(t, identifier, outgoing.Identifier)
+	assert.Equal(t, actions, outgoing.Actions)
+}
+
+func TestGrantRequestOptionWithInteract(t *testing.T) {
+	interact := &as.InteractRequest{
+		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+	}
+
+	params, err := openpayments.NewIncomingPaymentGrantRequestParams(
+		"https://auth.example.com",
+		[]as.AccessIncomingActions{as.AccessIncomingActionsCreate},
+		openpayments.WithInteract(interact),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, interact, params.RequestBody.Interact)
+}
+
+func TestGrantRequestOptionWithSubject(t *testing.T) {
+	subject := &as.Subject{}
+
+	params, err := openpayments.NewIncomingPaymentGrantRequestParams(
+		"https://auth.example.com",
+		[]as.AccessIncomingActions{as.AccessIncomingActionsCreate},
+		openpayments.WithSubject(subject),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, subject, params.RequestBody.Subject)
+}
