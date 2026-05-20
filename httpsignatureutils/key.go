@@ -38,7 +38,7 @@ func LoadBase64Key(base64Key string) (ed25519.PrivateKey, error) {
 }
 
 func LoadKeyFromFile(path string) (ed25519.PrivateKey, error) {
-	fileBytes, err := os.ReadFile(path)
+	fileBytes, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("could not load file: %w", err)
 	}
