@@ -24,8 +24,9 @@ type QuoteGetParams struct {
 type QuoteCreateParams struct {
 	BaseURL     string // The base URL for creating a quote (e.g., wallet address URL).
 	AccessToken string
-	// TODO: cant use rs.CreateQuoteJSONBody (unexported `union`). is there a better workaround
-	// for this payload than any?
+	// TODO: cant use rs.CreateQuoteRequest (unexported `union`). Consumers should pass one of
+	// the named variants directly: rs.CreateQuoteRequestByReceiver, rs.CreateQuoteRequestWithReceiveAmount,
+	// or rs.CreateQuoteRequestWithDebitAmount.
 	Payload any
 }
 

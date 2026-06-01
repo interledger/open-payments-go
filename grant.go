@@ -59,7 +59,9 @@ func (gr *Grant) IsGranted() bool {
 }
 
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	params.RequestBody.Client = gs.client
+	if err := params.RequestBody.Client.FromClientWithWalletAddress(as.ClientWithWalletAddress{WalletAddress: gs.client}); err != nil {
+		return Grant{}, fmt.Errorf("failed to set client: %w", err)
+	}
 
 	reqBodyBytes, err := json.Marshal(params.RequestBody)
 	if err != nil {
@@ -101,10 +103,9 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 		return Grant{}, fmt.Errorf("invalid continuation grant URL: %s", params.URL)
 	}
 
-	requestBody := map[string]string{}
-
+	requestBody := as.ContinuationRequest{}
 	if params.InteractRef != "" {
-		requestBody["interact_ref"] = params.InteractRef
+		requestBody.InteractRef = &params.InteractRef
 	}
 
 	bodyBytes, err := json.Marshal(requestBody)

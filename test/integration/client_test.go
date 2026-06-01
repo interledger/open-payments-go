@@ -279,7 +279,7 @@ func TestCreateIncomingPayment(t *testing.T) {
 	t.Logf("\nauthedClient.IncomingPayment.Create(\"%s\")\n", url)
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	payload := rs.CreateIncomingPaymentJSONBody{
+	payload := rs.CreateIncomingPaymentRequest{
 		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &rs.Amount{
 			Value:      "100",
@@ -404,7 +404,7 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}
 
 	// Create the Quote
-	createQuotePayload := rs.CreateQuoteJSONBody0{
+	createQuotePayload := rs.CreateQuoteRequestByReceiver{
 		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *newIncomingPayment.Id,
 		Method:        "ilp",
@@ -693,7 +693,7 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error) {
 	url := environment.ReceiverOpenPaymentsResourceUrl
 	expiresAt := time.Now().Add(24 * time.Hour)
-	payload := rs.CreateIncomingPaymentJSONBody{
+	payload := rs.CreateIncomingPaymentRequest{
 		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &rs.Amount{
 			Value:      "1",
@@ -748,7 +748,7 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	}
 
 	// Create the Quote
-	createQuotePayload := rs.CreateQuoteJSONBody0{
+	createQuotePayload := rs.CreateQuoteRequestByReceiver{
 		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *incomingPayment.Id,
 		Method:        "ilp",

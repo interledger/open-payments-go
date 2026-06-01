@@ -15,6 +15,10 @@ actions:
     description: Rename Go parameter to avoid conflict with schema
     update:
       x-go-name: WalletAddressParam
+  # Remove create-outgoing-payment-request schema added in new spec versions — replaced by named schemas below
+  - target: $.components.schemas['create-outgoing-payment-request']
+    remove: true
+
   # 1) Name the variant schemas explicitly
   - target: $.components.schemas
     update:
@@ -69,3 +73,69 @@ actions:
   - target: $.paths["/outgoing-payments"].post.requestBody
     update:
       $ref: "#/components/requestBodies/CreateOutgoingPaymentRequestBody"
+
+  # 5) Name create-quote-request oneOf variants
+  - target: $.components.schemas['create-quote-request']
+    remove: true
+  - target: $.components.schemas
+    update:
+      CreateQuoteRequestByReceiver:
+        type: object
+        required: [walletAddress, receiver, method]
+        additionalProperties: false
+        properties:
+          walletAddress:
+            $ref: '#/components/schemas/walletAddress'
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          method:
+            $ref: '#/components/schemas/payment-method'
+
+      CreateQuoteRequestWithReceiveAmount:
+        type: object
+        required: [walletAddress, receiver, method, receiveAmount]
+        additionalProperties: false
+        properties:
+          walletAddress:
+            $ref: '#/components/schemas/walletAddress'
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          method:
+            $ref: '#/components/schemas/payment-method'
+          receiveAmount:
+            $ref: '#/components/schemas/amount'
+
+      CreateQuoteRequestWithDebitAmount:
+        type: object
+        required: [walletAddress, receiver, method, debitAmount]
+        additionalProperties: false
+        properties:
+          walletAddress:
+            $ref: '#/components/schemas/walletAddress'
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          method:
+            $ref: '#/components/schemas/payment-method'
+          debitAmount:
+            $ref: '#/components/schemas/amount'
+
+      CreateQuoteRequest:
+        oneOf:
+          - $ref: '#/components/schemas/CreateQuoteRequestByReceiver'
+          - $ref: '#/components/schemas/CreateQuoteRequestWithReceiveAmount'
+          - $ref: '#/components/schemas/CreateQuoteRequestWithDebitAmount'
+
+  # 6) Replace nullable anyOf properties (OpenAPI 3.1 syntax oapi-codegen can't handle)
+  - target: $.paths['/outgoing-payment-grant'].get.responses['200'].content['application/json'].schema.properties.spentReceiveAmount
+    remove: true
+  - target: $.paths['/outgoing-payment-grant'].get.responses['200'].content['application/json'].schema.properties
+    update:
+      spentReceiveAmount:
+        $ref: '#/components/schemas/amount'
+
+  - target: $.paths['/outgoing-payment-grant'].get.responses['200'].content['application/json'].schema.properties.spentDebitAmount
+    remove: true
+  - target: $.paths['/outgoing-payment-grant'].get.responses['200'].content['application/json'].schema.properties
+    update:
+      spentDebitAmount:
+        $ref: '#/components/schemas/amount'

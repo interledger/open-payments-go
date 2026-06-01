@@ -55,6 +55,46 @@ type CreateOutgoingPaymentWithQuote struct {
 	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
 }
 
+// CreateQuoteRequest defines model for CreateQuoteRequest.
+type CreateQuoteRequest struct {
+	union json.RawMessage
+}
+
+// CreateQuoteRequestByReceiver defines model for CreateQuoteRequestByReceiver.
+type CreateQuoteRequestByReceiver struct {
+	Method PaymentMethod `json:"method"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateQuoteRequestWithDebitAmount defines model for CreateQuoteRequestWithDebitAmount.
+type CreateQuoteRequestWithDebitAmount struct {
+	DebitAmount Amount        `json:"debitAmount"`
+	Method      PaymentMethod `json:"method"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateQuoteRequestWithReceiveAmount defines model for CreateQuoteRequestWithReceiveAmount.
+type CreateQuoteRequestWithReceiveAmount struct {
+	Method        PaymentMethod `json:"method"`
+	ReceiveAmount Amount        `json:"receiveAmount"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
 // Amount defines model for amount.
 type Amount struct {
 	// AssetCode The assetCode is a code that indicates the underlying asset. An ISO4217 currency code should be used whenever possible. The ISO4217 representation of the US Dollar is USD.
@@ -65,6 +105,19 @@ type Amount struct {
 
 	// Value The value is an unsigned 64-bit integer amount, represented as a string.
 	Value string `json:"value"`
+}
+
+// CreateIncomingPaymentRequest defines model for create-incoming-payment-request.
+type CreateIncomingPaymentRequest struct {
+	// ExpiresAt The date and time when payments into the incoming payment must no longer be accepted.
+	ExpiresAt      *time.Time `json:"expiresAt,omitempty"`
+	IncomingAmount *Amount    `json:"incomingAmount,omitempty"`
+
+	// Metadata Additional metadata associated with the incoming payment. (Optional)
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
 }
 
 // ErrorResponse defines model for error-response.
@@ -316,19 +369,6 @@ type ListIncomingPaymentsParams struct {
 	Signature Signature `json:"Signature"`
 }
 
-// CreateIncomingPaymentJSONBody defines parameters for CreateIncomingPayment.
-type CreateIncomingPaymentJSONBody struct {
-	// ExpiresAt The date and time when payments into the incoming payment must no longer be accepted.
-	ExpiresAt      *time.Time `json:"expiresAt,omitempty"`
-	IncomingAmount *Amount    `json:"incomingAmount,omitempty"`
-
-	// Metadata Additional metadata associated with the incoming payment. (Optional)
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
 // CreateIncomingPaymentParams defines parameters for CreateIncomingPayment.
 type CreateIncomingPaymentParams struct {
 	// SignatureInput The Signature-Input field is a Dictionary structured field containing the metadata for one or more message signatures generated from components within the HTTP message.  Each member describes a single message signature.  The member's key is the label that uniquely identifies the message signature within the context of the HTTP message.  The member's value is the serialization of the covered components Inner List plus all signature metadata parameters identified by the label.  The following components MUST be included: - "@method" - "@target-uri" - "authorization".  When the message contains a request body, the covered components MUST also include the following: - "content-digest"  The keyid parameter of the signature MUST be set to the kid value of the JWK.      See [ietf-httpbis-message-signatures](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-message-signatures#section-4.1) for more details.
@@ -349,6 +389,15 @@ type GetIncomingPaymentParams struct {
 
 // CompleteIncomingPaymentParams defines parameters for CompleteIncomingPayment.
 type CompleteIncomingPaymentParams struct {
+	// SignatureInput The Signature-Input field is a Dictionary structured field containing the metadata for one or more message signatures generated from components within the HTTP message.  Each member describes a single message signature.  The member's key is the label that uniquely identifies the message signature within the context of the HTTP message.  The member's value is the serialization of the covered components Inner List plus all signature metadata parameters identified by the label.  The following components MUST be included: - "@method" - "@target-uri" - "authorization".  When the message contains a request body, the covered components MUST also include the following: - "content-digest"  The keyid parameter of the signature MUST be set to the kid value of the JWK.      See [ietf-httpbis-message-signatures](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-message-signatures#section-4.1) for more details.
+	SignatureInput SignatureInput `json:"Signature-Input"`
+
+	// Signature The signature generated based on the Signature-Input, using the signing algorithm specified in the "alg" field of the JWK.
+	Signature Signature `json:"Signature"`
+}
+
+// GetOutgoingPaymentGrantParams defines parameters for GetOutgoingPaymentGrant.
+type GetOutgoingPaymentGrantParams struct {
 	// SignatureInput The Signature-Input field is a Dictionary structured field containing the metadata for one or more message signatures generated from components within the HTTP message.  Each member describes a single message signature.  The member's key is the label that uniquely identifies the message signature within the context of the HTTP message.  The member's value is the serialization of the covered components Inner List plus all signature metadata parameters identified by the label.  The following components MUST be included: - "@method" - "@target-uri" - "authorization".  When the message contains a request body, the covered components MUST also include the following: - "content-digest"  The keyid parameter of the signature MUST be set to the kid value of the JWK.      See [ietf-httpbis-message-signatures](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-message-signatures#section-4.1) for more details.
 	SignatureInput SignatureInput `json:"Signature-Input"`
 
@@ -395,11 +444,6 @@ type GetOutgoingPaymentParams struct {
 	Signature Signature `json:"Signature"`
 }
 
-// CreateQuoteJSONBody defines parameters for CreateQuote.
-type CreateQuoteJSONBody struct {
-	union json.RawMessage
-}
-
 // CreateQuoteParams defines parameters for CreateQuote.
 type CreateQuoteParams struct {
 	// SignatureInput The Signature-Input field is a Dictionary structured field containing the metadata for one or more message signatures generated from components within the HTTP message.  Each member describes a single message signature.  The member's key is the label that uniquely identifies the message signature within the context of the HTTP message.  The member's value is the serialization of the covered components Inner List plus all signature metadata parameters identified by the label.  The following components MUST be included: - "@method" - "@target-uri" - "authorization".  When the message contains a request body, the covered components MUST also include the following: - "content-digest"  The keyid parameter of the signature MUST be set to the kid value of the JWK.      See [ietf-httpbis-message-signatures](https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-message-signatures#section-4.1) for more details.
@@ -407,41 +451,6 @@ type CreateQuoteParams struct {
 
 	// Signature The signature generated based on the Signature-Input, using the signing algorithm specified in the "alg" field of the JWK.
 	Signature Signature `json:"Signature"`
-}
-
-// CreateQuoteJSONBody0 defines parameters for CreateQuote.
-type CreateQuoteJSONBody0 struct {
-	Method PaymentMethod `json:"method"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateQuoteJSONBody1 defines parameters for CreateQuote.
-type CreateQuoteJSONBody1 struct {
-	Method        PaymentMethod `json:"method"`
-	ReceiveAmount Amount        `json:"receiveAmount"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateQuoteJSONBody2 defines parameters for CreateQuote.
-type CreateQuoteJSONBody2 struct {
-	DebitAmount Amount        `json:"debitAmount"`
-	Method      PaymentMethod `json:"method"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
 }
 
 // GetQuoteParams defines parameters for GetQuote.
@@ -454,13 +463,13 @@ type GetQuoteParams struct {
 }
 
 // CreateIncomingPaymentJSONRequestBody defines body for CreateIncomingPayment for application/json ContentType.
-type CreateIncomingPaymentJSONRequestBody CreateIncomingPaymentJSONBody
+type CreateIncomingPaymentJSONRequestBody = CreateIncomingPaymentRequest
 
 // CreateOutgoingPaymentJSONRequestBody defines body for CreateOutgoingPayment for application/json ContentType.
 type CreateOutgoingPaymentJSONRequestBody = CreateOutgoingPaymentRequest
 
 // CreateQuoteJSONRequestBody defines body for CreateQuote for application/json ContentType.
-type CreateQuoteJSONRequestBody CreateQuoteJSONBody
+type CreateQuoteJSONRequestBody = CreateQuoteRequest
 
 // AsCreateOutgoingPaymentWithQuote returns the union data inside the CreateOutgoingPaymentRequest as a CreateOutgoingPaymentWithQuote
 func (t CreateOutgoingPaymentRequest) AsCreateOutgoingPaymentWithQuote() (CreateOutgoingPaymentWithQuote, error) {
@@ -520,6 +529,94 @@ func (t CreateOutgoingPaymentRequest) MarshalJSON() ([]byte, error) {
 }
 
 func (t *CreateOutgoingPaymentRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCreateQuoteRequestByReceiver returns the union data inside the CreateQuoteRequest as a CreateQuoteRequestByReceiver
+func (t CreateQuoteRequest) AsCreateQuoteRequestByReceiver() (CreateQuoteRequestByReceiver, error) {
+	var body CreateQuoteRequestByReceiver
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateQuoteRequestByReceiver overwrites any union data inside the CreateQuoteRequest as the provided CreateQuoteRequestByReceiver
+func (t *CreateQuoteRequest) FromCreateQuoteRequestByReceiver(v CreateQuoteRequestByReceiver) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateQuoteRequestByReceiver performs a merge with any union data inside the CreateQuoteRequest, using the provided CreateQuoteRequestByReceiver
+func (t *CreateQuoteRequest) MergeCreateQuoteRequestByReceiver(v CreateQuoteRequestByReceiver) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateQuoteRequestWithReceiveAmount returns the union data inside the CreateQuoteRequest as a CreateQuoteRequestWithReceiveAmount
+func (t CreateQuoteRequest) AsCreateQuoteRequestWithReceiveAmount() (CreateQuoteRequestWithReceiveAmount, error) {
+	var body CreateQuoteRequestWithReceiveAmount
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateQuoteRequestWithReceiveAmount overwrites any union data inside the CreateQuoteRequest as the provided CreateQuoteRequestWithReceiveAmount
+func (t *CreateQuoteRequest) FromCreateQuoteRequestWithReceiveAmount(v CreateQuoteRequestWithReceiveAmount) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateQuoteRequestWithReceiveAmount performs a merge with any union data inside the CreateQuoteRequest, using the provided CreateQuoteRequestWithReceiveAmount
+func (t *CreateQuoteRequest) MergeCreateQuoteRequestWithReceiveAmount(v CreateQuoteRequestWithReceiveAmount) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateQuoteRequestWithDebitAmount returns the union data inside the CreateQuoteRequest as a CreateQuoteRequestWithDebitAmount
+func (t CreateQuoteRequest) AsCreateQuoteRequestWithDebitAmount() (CreateQuoteRequestWithDebitAmount, error) {
+	var body CreateQuoteRequestWithDebitAmount
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateQuoteRequestWithDebitAmount overwrites any union data inside the CreateQuoteRequest as the provided CreateQuoteRequestWithDebitAmount
+func (t *CreateQuoteRequest) FromCreateQuoteRequestWithDebitAmount(v CreateQuoteRequestWithDebitAmount) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateQuoteRequestWithDebitAmount performs a merge with any union data inside the CreateQuoteRequest, using the provided CreateQuoteRequestWithDebitAmount
+func (t *CreateQuoteRequest) MergeCreateQuoteRequestWithDebitAmount(v CreateQuoteRequestWithDebitAmount) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CreateQuoteRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CreateQuoteRequest) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

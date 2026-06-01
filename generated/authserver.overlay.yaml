@@ -7,6 +7,10 @@ x-speakeasy-jsonpath: rfc9535
 extends: ../open-payments-specifications/openapi/auth-server.yaml
 
 actions:
+  # Remove grant-request schema added in new spec versions — replaced by named schemas below
+  - target: $.components.schemas['grant-request']
+    remove: true
+
   # Named schema for access token in grant requests
   - target: $.components.schemas
     update:
@@ -65,3 +69,83 @@ actions:
   - target: $.paths["/"].post.requestBody
     update:
       $ref: "#/components/requestBodies/GrantRequest"
+
+  # Name client oneOf branches — extract to named schemas, replace inline variants with $refs
+  - target: $.components.schemas
+    update:
+      ClientLegacy:
+        type: string
+        format: uri
+        description: 'DEPRECATED: Backwards-compatible string wallet address format.'
+        deprecated: true
+      ClientWithWalletAddress:
+        type: object
+        required: [walletAddress]
+        properties:
+          walletAddress:
+            type: string
+            format: uri
+            description: Wallet address of the client instance.
+        additionalProperties: false
+      ClientWithJWK:
+        type: object
+        required: [jwk]
+        properties:
+          jwk:
+            $ref: '#/components/schemas/json-web-key'
+        additionalProperties: false
+
+  - target: $.components.schemas.client
+    remove: true
+  - target: $.components.schemas
+    update:
+      client:
+        title: client
+        description: Client identification for grant requests.
+        oneOf:
+          - $ref: '#/components/schemas/ClientLegacy'
+          - $ref: '#/components/schemas/ClientWithWalletAddress'
+          - $ref: '#/components/schemas/ClientWithJWK'
+
+  # Name limits-outgoing anyOf branches — extract to named schemas, replace inline variants with $refs
+  - target: $.components.schemas
+    update:
+      LimitsOutgoingWithoutAmount:
+        type: object
+        properties:
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          interval:
+            $ref: '#/components/schemas/interval'
+      LimitsOutgoingWithDebitAmount:
+        type: object
+        required: [debitAmount]
+        properties:
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          interval:
+            $ref: '#/components/schemas/interval'
+          debitAmount:
+            $ref: '#/components/schemas/amount'
+      LimitsOutgoingWithReceiveAmount:
+        type: object
+        required: [receiveAmount]
+        properties:
+          receiver:
+            $ref: '#/components/schemas/receiver'
+          interval:
+            $ref: '#/components/schemas/interval'
+          receiveAmount:
+            $ref: '#/components/schemas/amount'
+
+  - target: $.components.schemas['limits-outgoing']
+    remove: true
+  - target: $.components.schemas
+    update:
+      'limits-outgoing':
+        title: limits-outgoing
+        description: Open Payments specific property that defines the limits under which outgoing payments can be created.
+        anyOf:
+          - $ref: '#/components/schemas/LimitsOutgoingWithoutAmount'
+          - $ref: '#/components/schemas/LimitsOutgoingWithDebitAmount'
+          - $ref: '#/components/schemas/LimitsOutgoingWithReceiveAmount'
