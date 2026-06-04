@@ -92,7 +92,7 @@ func NewAuthenticatedClient(walletAddressUrl string, privateKey string, keyId st
 		return nil, fmt.Errorf("invalid wallet address: %q (cannot start with '$')", walletAddressUrl)
 	}
 
-	edKey, err := httpsignatureutils.LoadBase64Key(privateKey)
+	edKey, err := httpsignatureutils.LoadKey(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("error loading private key: %w", err)
 	}
