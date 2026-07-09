@@ -63,50 +63,59 @@ func (gr *Grant) IsGranted() bool {
 	return gr.AccessToken != nil
 }
 
-// decodes the union grant request and sets the client field on the
-// underlying concrete struct. GrantRequest wraps json.RawMessage
-// so we can't assign to .Client directly. If override is non-nil, the client
-// is identified by JWK (directed identity) instead of the default wallet address.
-func (gs *GrantService) setClient(body as.GrantRequest, override *as.ClientDirectedIdentity) (as.GrantRequest, error) {
-	setOn := func(c *as.Client) error {
-		if override != nil {
-			return c.FromClientDirectedIdentity(*override)
-		}
-		return c.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client})
-	}
+type parsedGrantRequest struct {
+	Client *as.Client
+	encode func() (as.GrantRequest, error)
+}
 
+// decodes body into whichever concrete variant the caller built (access-token or subject)
+func parseRequest(body as.GrantRequest) (parsedGrantRequest, error) {
 	tokenReq, err := body.AsGrantRequestWithAccessToken()
 	if err != nil {
-		return as.GrantRequest{}, fmt.Errorf("invalid grant request body: %w", err)
+		return parsedGrantRequest{}, fmt.Errorf("invalid grant request body: %w", err)
 	}
 
 	if tokenReq.Subject != nil {
 		subjectReq, err := body.AsGrantRequestWithSubject()
 		if err != nil {
-			return as.GrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
+			return parsedGrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
 		}
-		if err := setOn(&subjectReq.Client); err != nil {
-			return as.GrantRequest{}, err
-		}
-		if err := body.FromGrantRequestWithSubject(subjectReq); err != nil {
-			return as.GrantRequest{}, err
-		}
-		return body, nil
+		return parsedGrantRequest{
+			Client: &subjectReq.Client,
+			encode: func() (as.GrantRequest, error) {
+				var g as.GrantRequest
+				return g, g.FromGrantRequestWithSubject(subjectReq)
+			},
+		}, nil
 	}
 
-	if err := setOn(&tokenReq.Client); err != nil {
-		return as.GrantRequest{}, err
-	}
-	if err := body.FromGrantRequestWithAccessToken(tokenReq); err != nil {
-		return as.GrantRequest{}, err
-	}
-	return body, nil
+	return parsedGrantRequest{
+		Client: &tokenReq.Client,
+		encode: func() (as.GrantRequest, error) {
+			var g as.GrantRequest
+			return g, g.FromGrantRequestWithAccessToken(tokenReq)
+		},
+	}, nil
 }
 
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	body, err := gs.setClient(params.RequestBody, params.ClientOverride)
+	parsed, err := parseRequest(params.RequestBody)
+	if err != nil {
+		return Grant{}, err
+	}
+
+	if params.ClientOverride != nil {
+		err = parsed.Client.FromClientDirectedIdentity(*params.ClientOverride)
+	} else {
+		err = parsed.Client.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client})
+	}
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to set client: %w", err)
+	}
+
+	body, err := parsed.encode()
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to encode grant request body: %w", err)
 	}
 
 	reqBodyBytes, err := json.Marshal(body)

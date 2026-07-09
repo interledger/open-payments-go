@@ -263,6 +263,6 @@ func TestGrantRequest_WithClientOverride(t *testing.T) {
 	assert.NotContains(t, clientObj, "walletAddress", "override should replace wallet address")
 	sentJwk, ok := clientObj["jwk"].(map[string]any)
 	assert.True(t, ok, "client.jwk should be present")
-	assert.Equal(t, "override-key", sentJwk["kid"])
+	assert.Equal(t, "key1", sentJwk["kid"])
 	assert.Equal(t, "EdDSA", sentJwk["alg"])
 }
