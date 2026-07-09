@@ -47,6 +47,7 @@ type GrantContinueParams struct {
 type Grant struct {
 	Interact    *as.InteractResponse `json:"interact,omitempty"`
 	AccessToken *as.AccessToken      `json:"access_token,omitempty"`
+	Subject     *as.Subject          `json:"subject,omitempty"`
 	Continue    as.Continue          `json:"continue"`
 }
 

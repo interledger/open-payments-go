@@ -2,8 +2,11 @@ package openpayments_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -129,4 +132,66 @@ func TestGrantRequest(t *testing.T) {
 	assert.Equal(t, http.MethodPost, capture.Method)
 	assert.Equal(t, "application/json", capture.Header.Get("Content-Type"))
 	assert.Equal(t, mockServer.URL+reqPath, capture.URL.String())
+}
+
+func TestGrantRequest_WithSubject(t *testing.T) {
+	var receivedBody []byte
+	mockResponse := openpayments.Grant{
+		Interact: &as.InteractResponse{
+			Redirect: "https://auth.example.com/interact/abc",
+			Finish:   "finish-nonce",
+		},
+		Continue: as.Continue{
+			Uri: "https://auth.example.com/continue/123",
+			AccessToken: struct {
+				Value string `json:"value"`
+			}{
+				Value: "continue-token",
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(server.Client()))
+	if err != nil {
+		log.Fatalf("Failed to initialize authenticated client: %v", err)
+	}
+
+	subject := as.Subject{
+		SubIds: []struct {
+			Format as.SubjectSubIdsFormat `json:"format"`
+			Id     string                 `json:"id"`
+		}{{Format: "uri", Id: "https://example.com/alice"}},
+	}
+	interact := as.InteractRequest{
+		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
+	}
+
+	var requestBody as.GrantRequest
+	err = requestBody.FromGrantRequestWithSubject(as.GrantRequestWithSubject{
+		Subject:  subject,
+		Interact: interact,
+	})
+	assert.NoError(t, err)
+
+	grant, err := client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+		URL:         server.URL + "/",
+		RequestBody: requestBody,
+	})
+	assert.NoError(t, err)
+	assert.True(t, grant.IsInteractive())
+
+	var sent map[string]any
+	assert.NoError(t, json.Unmarshal(receivedBody, &sent))
+	assert.NotNil(t, sent["subject"], "subject variant should be preserved after setClient")
+	assert.NotNil(t, sent["interact"], "interact should be preserved (required for subject grants)")
+	clientObj, ok := sent["client"].(map[string]any)
+	assert.True(t, ok, "client should be injected as an object")
+	assert.Equal(t, walletAddress, clientObj["walletAddress"])
 }
