@@ -158,10 +158,13 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 		t.Fatalf("Error creating AccessItem: %v", err)
 	}
 
-	requestBody := as.GrantRequestWithAccessToken{
+	var requestBody as.GrantRequest
+	if err := requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		t.Fatalf("Error creating grant request body: %v", err)
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -367,10 +370,13 @@ func TestCreateAndGetQuote(t *testing.T) {
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		t.Fatalf("Error creating AccessItem for quote: %v", err)
 	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
+	var quoteGrantRequestBody as.GrantRequest
+	if err := quoteGrantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		t.Fatalf("Error creating quote grant request body: %v", err)
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -740,10 +746,13 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 		return nil, fmt.Errorf("Error creating AccessItem: %w", err)
 	}
 
-	requestBody := as.GrantRequestWithAccessToken{
+	var requestBody as.GrantRequest
+	if err := requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		return nil, fmt.Errorf("Error creating grant request body: %w", err)
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -800,10 +809,13 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		return nil, fmt.Errorf("error creating AccessItem for quote: %w", err)
 	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
+	var quoteGrantRequestBody as.GrantRequest
+	if err := quoteGrantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		return nil, fmt.Errorf("error creating quote grant request body: %w", err)
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -855,16 +867,21 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
 	}
 
+	var grantRequestBody as.GrantRequest
+	if err := grantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+		Interact: interact,
+	}); err != nil {
+		return nil, fmt.Errorf("error creating grant request body: %w", err)
+	}
+
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
 		op.GrantRequestParams{
 			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: as.GrantRequestWithAccessToken{
-				AccessToken: as.AccessTokenRequest{
-					Access: []as.AccessItem{accessItem},
-				},
-				Interact: interact,
-			},
+			RequestBody: grantRequestBody,
 		},
 	)
 	if err != nil {

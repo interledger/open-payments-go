@@ -27,7 +27,7 @@ type GrantService struct {
 
 type GrantRequestParams struct {
 	URL         string // Auth server URL
-	RequestBody as.GrantRequestWithAccessToken
+	RequestBody as.GrantRequest
 }
 
 type GrantCancelParams struct {
@@ -58,12 +58,47 @@ func (gr *Grant) IsGranted() bool {
 	return gr.AccessToken != nil
 }
 
+// decodes the union grant request and sets the client field on the
+// underlying concrete struct. GrantRequest wraps json.RawMessage
+// so we can't assign to .Client directly.
+func (gs *GrantService) setClient(body as.GrantRequest) (as.GrantRequest, error) {
+	client := as.ClientWalletAddress{WalletAddress: gs.client}
+
+	tokenReq, err := body.AsGrantRequestWithAccessToken()
+	if err != nil {
+		return as.GrantRequest{}, fmt.Errorf("invalid grant request body: %w", err)
+	}
+
+	if tokenReq.Subject != nil {
+		subjectReq, err := body.AsGrantRequestWithSubject()
+		if err != nil {
+			return as.GrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
+		}
+		if err := subjectReq.Client.FromClientWalletAddress(client); err != nil {
+			return as.GrantRequest{}, err
+		}
+		if err := body.FromGrantRequestWithSubject(subjectReq); err != nil {
+			return as.GrantRequest{}, err
+		}
+		return body, nil
+	}
+
+	if err := tokenReq.Client.FromClientWalletAddress(client); err != nil {
+		return as.GrantRequest{}, err
+	}
+	if err := body.FromGrantRequestWithAccessToken(tokenReq); err != nil {
+		return as.GrantRequest{}, err
+	}
+	return body, nil
+}
+
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	if err := params.RequestBody.Client.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client}); err != nil {
+	body, err := gs.setClient(params.RequestBody)
+	if err != nil {
 		return Grant{}, fmt.Errorf("failed to set client: %w", err)
 	}
 
-	reqBodyBytes, err := json.Marshal(params.RequestBody)
+	reqBodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}

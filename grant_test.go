@@ -107,13 +107,17 @@ func TestGrantRequest(t *testing.T) {
 	err = accessItem.FromAccessIncoming(incomingAccess)
 	assert.NoError(t, err)
 
-	grant, err := client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
-		URL: mockServer.URL + reqPath,
-		RequestBody: as.GrantRequestWithAccessToken{
-			AccessToken: as.AccessTokenRequest{
-				Access: []as.AccessItem{accessItem},
-			},
+	var requestBody as.GrantRequest
+	err = requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
 		},
+	})
+	assert.NoError(t, err)
+
+	grant, err := client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+		URL:         mockServer.URL + reqPath,
+		RequestBody: requestBody,
 	})
 
 	assert.NoError(t, err)
