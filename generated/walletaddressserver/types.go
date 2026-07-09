@@ -28,16 +28,21 @@ const (
 	Sig JsonWebKeyUse = "sig"
 )
 
-// DidDocument A DID Document using JSON encoding
-type DidDocument map[string]interface{}
-
 // JsonWebKey A JWK representation of an Ed25519 Public Key
 type JsonWebKey struct {
 	// Alg The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`.
-	Alg JsonWebKeyAlg  `json:"alg"`
-	Crv JsonWebKeyCrv  `json:"crv"`
-	Kid string         `json:"kid"`
-	Kty JsonWebKeyKty  `json:"kty"`
+	Alg JsonWebKeyAlg `json:"alg"`
+
+	// Crv The cryptographic curve used with the key. The only allowed value is `Ed25519`.
+	Crv JsonWebKeyCrv `json:"crv"`
+
+	// Kid A unique identifier for the key.
+	Kid string `json:"kid"`
+
+	// Kty The key type. Identifies the cryptographic algorithm family. The only allowed value is `OKP` (Octet Key Pair).
+	Kty JsonWebKeyKty `json:"kty"`
+
+	// Use The intended use of the key. The only allowed value is `sig` (signature).
 	Use *JsonWebKeyUse `json:"use,omitempty"`
 
 	// X The base64 url-encoded public key.
@@ -47,13 +52,13 @@ type JsonWebKey struct {
 // JsonWebKeyAlg The cryptographic algorithm family used with the key. The only allowed value is `EdDSA`.
 type JsonWebKeyAlg string
 
-// JsonWebKeyCrv defines model for JsonWebKey.Crv.
+// JsonWebKeyCrv The cryptographic curve used with the key. The only allowed value is `Ed25519`.
 type JsonWebKeyCrv string
 
-// JsonWebKeyKty defines model for JsonWebKey.Kty.
+// JsonWebKeyKty The key type. Identifies the cryptographic algorithm family. The only allowed value is `OKP` (Octet Key Pair).
 type JsonWebKeyKty string
 
-// JsonWebKeyUse defines model for JsonWebKey.Use.
+// JsonWebKeyUse The intended use of the key. The only allowed value is `sig` (signature).
 type JsonWebKeyUse string
 
 // JsonWebKeySet A JSON Web Key Set document according to [rfc7517](https://datatracker.ietf.org/doc/html/rfc7517) listing the keys associated with this wallet address. These keys are used to sign requests made by this wallet address.

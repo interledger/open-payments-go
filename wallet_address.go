@@ -20,10 +20,6 @@ type WalletAddressGetKeysParams struct {
 	URL string // The full URL of the wallet address resource.
 }
 
-type WalletAddressGetDIDDocumentParams struct {
-	URL string // The full URL of the wallet address resource.
-}
-
 func (wa *WalletAddressService) Get(ctx context.Context, params WalletAddressGetParams) (was.WalletAddress, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, params.URL, nil)
 	if err != nil {
@@ -76,29 +72,3 @@ func (wa *WalletAddressService) GetKeys(ctx context.Context, params WalletAddres
 	return keyResponse, nil
 }
 
-func (wa *WalletAddressService) GetDIDDocument(ctx context.Context, params WalletAddressGetDIDDocumentParams) (was.DidDocument, error) {
-	url := params.URL + "/did.json"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-
-	if err != nil {
-		return was.DidDocument{}, err
-	}
-
-	resp, err := wa.DoUnsigned(req)
-	if err != nil {
-		return was.DidDocument{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return was.DidDocument{}, newClientErrorFromResponse(req, resp)
-	}
-
-	var DIDDocumentResponse was.DidDocument
-	err = json.NewDecoder(resp.Body).Decode(&DIDDocumentResponse)
-	if err != nil {
-		return was.DidDocument{}, fmt.Errorf("failed to decode response body: %w", err)
-	}
-
-	return DIDDocumentResponse, nil
-}

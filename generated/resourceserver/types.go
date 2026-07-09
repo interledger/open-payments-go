@@ -24,77 +24,6 @@ const (
 	PaymentMethodIlp PaymentMethod = "ilp"
 )
 
-// CreateOutgoingPaymentRequest defines model for CreateOutgoingPaymentRequest.
-type CreateOutgoingPaymentRequest struct {
-	union json.RawMessage
-}
-
-// CreateOutgoingPaymentWithAmount defines model for CreateOutgoingPaymentWithAmount.
-type CreateOutgoingPaymentWithAmount struct {
-	DebitAmount Amount `json:"debitAmount"`
-
-	// IncomingPayment The URL of the incoming payment this outgoing payment will fulfill.
-	IncomingPayment string `json:"incomingPayment"`
-
-	// Metadata Additional metadata associated with the outgoing payment. (Optional)
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateOutgoingPaymentWithQuote defines model for CreateOutgoingPaymentWithQuote.
-type CreateOutgoingPaymentWithQuote struct {
-	// Metadata Additional metadata associated with the outgoing payment. (Optional)
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// QuoteId The URL of the quote defining this payment's amounts.
-	QuoteId string `json:"quoteId"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateQuoteRequest defines model for CreateQuoteRequest.
-type CreateQuoteRequest struct {
-	union json.RawMessage
-}
-
-// CreateQuoteRequestByReceiver defines model for CreateQuoteRequestByReceiver.
-type CreateQuoteRequestByReceiver struct {
-	Method PaymentMethod `json:"method"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateQuoteRequestWithDebitAmount defines model for CreateQuoteRequestWithDebitAmount.
-type CreateQuoteRequestWithDebitAmount struct {
-	DebitAmount Amount        `json:"debitAmount"`
-	Method      PaymentMethod `json:"method"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
-// CreateQuoteRequestWithReceiveAmount defines model for CreateQuoteRequestWithReceiveAmount.
-type CreateQuoteRequestWithReceiveAmount struct {
-	Method        PaymentMethod `json:"method"`
-	ReceiveAmount Amount        `json:"receiveAmount"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver Receiver `json:"receiver"`
-
-	// WalletAddressSchema The URL of an Open Payments wallet address
-	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
-}
-
 // Amount defines model for amount.
 type Amount struct {
 	// AssetCode The assetCode is a code that indicates the underlying asset. An ISO4217 currency code should be used whenever possible. The ISO4217 representation of the US Dollar is USD.
@@ -115,6 +44,77 @@ type CreateIncomingPaymentRequest struct {
 
 	// Metadata Additional metadata associated with the incoming payment. (Optional)
 	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateOutgoingPaymentRequest defines model for create-outgoing-payment-request.
+type CreateOutgoingPaymentRequest struct {
+	union json.RawMessage
+}
+
+// CreateOutgoingPaymentRequestFromIncomingPayment defines model for create-outgoing-payment-request-from-incoming-payment.
+type CreateOutgoingPaymentRequestFromIncomingPayment struct {
+	DebitAmount Amount `json:"debitAmount"`
+
+	// IncomingPayment The URL of the incoming payment this outgoing payment will fulfill.
+	IncomingPayment string `json:"incomingPayment"`
+
+	// Metadata Additional metadata associated with the outgoing payment. (Optional)
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateOutgoingPaymentRequestFromQuote defines model for create-outgoing-payment-request-from-quote.
+type CreateOutgoingPaymentRequestFromQuote struct {
+	// Metadata Additional metadata associated with the outgoing payment. (Optional)
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// QuoteId The URL of the quote defining this payment's amounts.
+	QuoteId string `json:"quoteId"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateQuoteRequest defines model for create-quote-request.
+type CreateQuoteRequest struct {
+	union json.RawMessage
+}
+
+// CreateQuoteRequestByReceiver Create quote for an `receiver` that is an Incoming Payment with an `incomingAmount`
+type CreateQuoteRequestByReceiver struct {
+	Method PaymentMethod `json:"method"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateQuoteRequestWithDebitAmount Create a quote with a fixed-send amount
+type CreateQuoteRequestWithDebitAmount struct {
+	DebitAmount Amount        `json:"debitAmount"`
+	Method      PaymentMethod `json:"method"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
+
+	// WalletAddressSchema The URL of an Open Payments wallet address
+	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
+}
+
+// CreateQuoteRequestWithReceiveAmount Create a quote with a fixed-receive amount
+type CreateQuoteRequestWithReceiveAmount struct {
+	Method        PaymentMethod `json:"method"`
+	ReceiveAmount Amount        `json:"receiveAmount"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver Receiver `json:"receiver"`
 
 	// WalletAddressSchema The URL of an Open Payments wallet address
 	WalletAddressSchema WalletAddressSchema `json:"walletAddress"`
@@ -345,9 +345,6 @@ type N403 = ErrorResponse
 // N404 defines model for 404.
 type N404 = ErrorResponse
 
-// CreateOutgoingPaymentRequestBody defines model for CreateOutgoingPaymentRequestBody.
-type CreateOutgoingPaymentRequestBody = CreateOutgoingPaymentRequest
-
 // ListIncomingPaymentsParams defines parameters for ListIncomingPayments.
 type ListIncomingPaymentsParams struct {
 	// WalletAddressParam URL of a wallet address hosted by a Rafiki instance.
@@ -471,22 +468,22 @@ type CreateOutgoingPaymentJSONRequestBody = CreateOutgoingPaymentRequest
 // CreateQuoteJSONRequestBody defines body for CreateQuote for application/json ContentType.
 type CreateQuoteJSONRequestBody = CreateQuoteRequest
 
-// AsCreateOutgoingPaymentWithQuote returns the union data inside the CreateOutgoingPaymentRequest as a CreateOutgoingPaymentWithQuote
-func (t CreateOutgoingPaymentRequest) AsCreateOutgoingPaymentWithQuote() (CreateOutgoingPaymentWithQuote, error) {
-	var body CreateOutgoingPaymentWithQuote
+// AsCreateOutgoingPaymentRequestFromQuote returns the union data inside the CreateOutgoingPaymentRequest as a CreateOutgoingPaymentRequestFromQuote
+func (t CreateOutgoingPaymentRequest) AsCreateOutgoingPaymentRequestFromQuote() (CreateOutgoingPaymentRequestFromQuote, error) {
+	var body CreateOutgoingPaymentRequestFromQuote
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateOutgoingPaymentWithQuote overwrites any union data inside the CreateOutgoingPaymentRequest as the provided CreateOutgoingPaymentWithQuote
-func (t *CreateOutgoingPaymentRequest) FromCreateOutgoingPaymentWithQuote(v CreateOutgoingPaymentWithQuote) error {
+// FromCreateOutgoingPaymentRequestFromQuote overwrites any union data inside the CreateOutgoingPaymentRequest as the provided CreateOutgoingPaymentRequestFromQuote
+func (t *CreateOutgoingPaymentRequest) FromCreateOutgoingPaymentRequestFromQuote(v CreateOutgoingPaymentRequestFromQuote) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateOutgoingPaymentWithQuote performs a merge with any union data inside the CreateOutgoingPaymentRequest, using the provided CreateOutgoingPaymentWithQuote
-func (t *CreateOutgoingPaymentRequest) MergeCreateOutgoingPaymentWithQuote(v CreateOutgoingPaymentWithQuote) error {
+// MergeCreateOutgoingPaymentRequestFromQuote performs a merge with any union data inside the CreateOutgoingPaymentRequest, using the provided CreateOutgoingPaymentRequestFromQuote
+func (t *CreateOutgoingPaymentRequest) MergeCreateOutgoingPaymentRequestFromQuote(v CreateOutgoingPaymentRequestFromQuote) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -497,22 +494,22 @@ func (t *CreateOutgoingPaymentRequest) MergeCreateOutgoingPaymentWithQuote(v Cre
 	return err
 }
 
-// AsCreateOutgoingPaymentWithAmount returns the union data inside the CreateOutgoingPaymentRequest as a CreateOutgoingPaymentWithAmount
-func (t CreateOutgoingPaymentRequest) AsCreateOutgoingPaymentWithAmount() (CreateOutgoingPaymentWithAmount, error) {
-	var body CreateOutgoingPaymentWithAmount
+// AsCreateOutgoingPaymentRequestFromIncomingPayment returns the union data inside the CreateOutgoingPaymentRequest as a CreateOutgoingPaymentRequestFromIncomingPayment
+func (t CreateOutgoingPaymentRequest) AsCreateOutgoingPaymentRequestFromIncomingPayment() (CreateOutgoingPaymentRequestFromIncomingPayment, error) {
+	var body CreateOutgoingPaymentRequestFromIncomingPayment
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateOutgoingPaymentWithAmount overwrites any union data inside the CreateOutgoingPaymentRequest as the provided CreateOutgoingPaymentWithAmount
-func (t *CreateOutgoingPaymentRequest) FromCreateOutgoingPaymentWithAmount(v CreateOutgoingPaymentWithAmount) error {
+// FromCreateOutgoingPaymentRequestFromIncomingPayment overwrites any union data inside the CreateOutgoingPaymentRequest as the provided CreateOutgoingPaymentRequestFromIncomingPayment
+func (t *CreateOutgoingPaymentRequest) FromCreateOutgoingPaymentRequestFromIncomingPayment(v CreateOutgoingPaymentRequestFromIncomingPayment) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateOutgoingPaymentWithAmount performs a merge with any union data inside the CreateOutgoingPaymentRequest, using the provided CreateOutgoingPaymentWithAmount
-func (t *CreateOutgoingPaymentRequest) MergeCreateOutgoingPaymentWithAmount(v CreateOutgoingPaymentWithAmount) error {
+// MergeCreateOutgoingPaymentRequestFromIncomingPayment performs a merge with any union data inside the CreateOutgoingPaymentRequest, using the provided CreateOutgoingPaymentRequestFromIncomingPayment
+func (t *CreateOutgoingPaymentRequest) MergeCreateOutgoingPaymentRequestFromIncomingPayment(v CreateOutgoingPaymentRequestFromIncomingPayment) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

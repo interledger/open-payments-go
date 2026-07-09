@@ -59,7 +59,7 @@ func (gr *Grant) IsGranted() bool {
 }
 
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	if err := params.RequestBody.Client.FromClientWithWalletAddress(as.ClientWithWalletAddress{WalletAddress: gs.client}); err != nil {
+	if err := params.RequestBody.Client.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client}); err != nil {
 		return Grant{}, fmt.Errorf("failed to set client: %w", err)
 	}
 

@@ -125,86 +125,6 @@ type AccessTokenRequest struct {
 	Access Access `json:"access"`
 }
 
-// ClientLegacy DEPRECATED: Backwards-compatible string wallet address format.
-type ClientLegacy = string
-
-// ClientWithJWK defines model for ClientWithJWK.
-type ClientWithJWK struct {
-	// Jwk A JWK representation of an Ed25519 Public Key
-	Jwk JsonWebKey `json:"jwk"`
-}
-
-// ClientWithWalletAddress defines model for ClientWithWalletAddress.
-type ClientWithWalletAddress struct {
-	// WalletAddress Wallet address of the client instance.
-	WalletAddress string `json:"walletAddress"`
-}
-
-// GrantRequestBody defines model for GrantRequestBody.
-type GrantRequestBody struct {
-	union json.RawMessage
-}
-
-// GrantRequestWithAccessToken defines model for GrantRequestWithAccessToken.
-type GrantRequestWithAccessToken struct {
-	// AccessToken The requested access permissions for the grant.
-	AccessToken AccessTokenRequest `json:"access_token"`
-
-	// Client Client identification for grant requests.
-	Client Client `json:"client"`
-
-	// Interact The client instance declares the parameters for interaction methods that it can support using the interact field.
-	Interact *InteractRequest `json:"interact,omitempty"`
-
-	// Subject Information about the subject for which the client is requesting information.
-	Subject *Subject `json:"subject,omitempty"`
-}
-
-// GrantRequestWithSubject defines model for GrantRequestWithSubject.
-type GrantRequestWithSubject struct {
-	// AccessToken The requested access permissions for the grant.
-	AccessToken *AccessTokenRequest `json:"access_token,omitempty"`
-
-	// Client Client identification for grant requests.
-	Client Client `json:"client"`
-
-	// Interact The client instance declares the parameters for interaction methods that it can support using the interact field.
-	Interact InteractRequest `json:"interact"`
-
-	// Subject Information about the subject for which the client is requesting information.
-	Subject Subject `json:"subject"`
-}
-
-// LimitsOutgoingWithDebitAmount defines model for LimitsOutgoingWithDebitAmount.
-type LimitsOutgoingWithDebitAmount struct {
-	DebitAmount Amount `json:"debitAmount"`
-
-	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
-	Interval *Interval `json:"interval,omitempty"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver *Receiver `json:"receiver,omitempty"`
-}
-
-// LimitsOutgoingWithReceiveAmount defines model for LimitsOutgoingWithReceiveAmount.
-type LimitsOutgoingWithReceiveAmount struct {
-	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
-	Interval      *Interval `json:"interval,omitempty"`
-	ReceiveAmount Amount    `json:"receiveAmount"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver *Receiver `json:"receiver,omitempty"`
-}
-
-// LimitsOutgoingWithoutAmount defines model for LimitsOutgoingWithoutAmount.
-type LimitsOutgoingWithoutAmount struct {
-	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
-	Interval *Interval `json:"interval,omitempty"`
-
-	// Receiver The URL of the incoming payment that is being paid.
-	Receiver *Receiver `json:"receiver,omitempty"`
-}
-
 // Access A description of the rights associated with this access token.
 type Access = []AccessItem
 
@@ -295,9 +215,38 @@ type Amount struct {
 }
 
 // Client Client identification for grant requests.
+//
+// When sending a non-continuation request to the AS, the client instance MUST identify itself by including the client field of the request and by signing the request.
+//
+// Can be either:
+// - A wallet address string (backwards compatible format)
+// - An object with either `jwk` (for directed identity) or `walletAddress` (mutually exclusive)
+//
+// When using a wallet address string or the `walletAddress` property:
+// A JSON Web Key Set document, including the public key that the client instance will use to protect this request and any continuation requests at the AS and any user-facing information about the client instance used in interactions, MUST be available at the wallet address + `/jwks.json` url.
+//
+// When using the `jwk` property (directed identity approach):
+// The client instance provides its public key directly in the request, eliminating the need for the AS to fetch it from a wallet address. This approach enhances privacy by not requiring the client to expose a persistent wallet address identifier. The `jwk` property can only be used for non-interactive grant requests (i.e.: incoming payments).
+//
+// If sending a grant initiation request that requires RO interaction, the wallet address MUST serve necessary client display information.
 type Client struct {
 	union json.RawMessage
 }
+
+// ClientDirectedIdentity defines model for client-directed-identity.
+type ClientDirectedIdentity struct {
+	// Jwk A JWK representation of an Ed25519 Public Key
+	Jwk JsonWebKey `json:"jwk"`
+}
+
+// ClientWalletAddress defines model for client-wallet-address.
+type ClientWalletAddress struct {
+	// WalletAddress Wallet address of the client instance that is making this request.
+	WalletAddress string `json:"walletAddress"`
+}
+
+// ClientWalletAddressString DEPRECATED: This string format of the client wallet address is maintained only for backwards compatibility. Migrate to the object form with `jwk` or `walletAddress`.
+type ClientWalletAddressString = string
 
 // ContinuationRequest defines model for continuation-request.
 type ContinuationRequest struct {
@@ -386,6 +335,69 @@ type ErrorTooFast struct {
 // ErrorTooFastErrorCode defines model for ErrorTooFast.Error.Code.
 type ErrorTooFastErrorCode string
 
+// GrantRequest defines model for grant-request.
+type GrantRequest struct {
+	union json.RawMessage
+}
+
+// GrantRequestWithAccessToken defines model for grant-request-with-access-token.
+type GrantRequestWithAccessToken struct {
+	// AccessToken The requested access permissions for the grant.
+	AccessToken AccessTokenRequest `json:"access_token"`
+
+	// Client Client identification for grant requests.
+	//
+	// When sending a non-continuation request to the AS, the client instance MUST identify itself by including the client field of the request and by signing the request.
+	//
+	// Can be either:
+	// - A wallet address string (backwards compatible format)
+	// - An object with either `jwk` (for directed identity) or `walletAddress` (mutually exclusive)
+	//
+	// When using a wallet address string or the `walletAddress` property:
+	// A JSON Web Key Set document, including the public key that the client instance will use to protect this request and any continuation requests at the AS and any user-facing information about the client instance used in interactions, MUST be available at the wallet address + `/jwks.json` url.
+	//
+	// When using the `jwk` property (directed identity approach):
+	// The client instance provides its public key directly in the request, eliminating the need for the AS to fetch it from a wallet address. This approach enhances privacy by not requiring the client to expose a persistent wallet address identifier. The `jwk` property can only be used for non-interactive grant requests (i.e.: incoming payments).
+	//
+	// If sending a grant initiation request that requires RO interaction, the wallet address MUST serve necessary client display information.
+	Client Client `json:"client"`
+
+	// Interact The client instance declares the parameters for interaction methods that it can support using the interact field.
+	Interact *InteractRequest `json:"interact,omitempty"`
+
+	// Subject Information about the subject for which the client is requesting information.
+	Subject *Subject `json:"subject,omitempty"`
+}
+
+// GrantRequestWithSubject defines model for grant-request-with-subject.
+type GrantRequestWithSubject struct {
+	// AccessToken The requested access permissions for the grant.
+	AccessToken *AccessTokenRequest `json:"access_token,omitempty"`
+
+	// Client Client identification for grant requests.
+	//
+	// When sending a non-continuation request to the AS, the client instance MUST identify itself by including the client field of the request and by signing the request.
+	//
+	// Can be either:
+	// - A wallet address string (backwards compatible format)
+	// - An object with either `jwk` (for directed identity) or `walletAddress` (mutually exclusive)
+	//
+	// When using a wallet address string or the `walletAddress` property:
+	// A JSON Web Key Set document, including the public key that the client instance will use to protect this request and any continuation requests at the AS and any user-facing information about the client instance used in interactions, MUST be available at the wallet address + `/jwks.json` url.
+	//
+	// When using the `jwk` property (directed identity approach):
+	// The client instance provides its public key directly in the request, eliminating the need for the AS to fetch it from a wallet address. This approach enhances privacy by not requiring the client to expose a persistent wallet address identifier. The `jwk` property can only be used for non-interactive grant requests (i.e.: incoming payments).
+	//
+	// If sending a grant initiation request that requires RO interaction, the wallet address MUST serve necessary client display information.
+	Client Client `json:"client"`
+
+	// Interact The client instance declares the parameters for interaction methods that it can support using the interact field.
+	Interact InteractRequest `json:"interact"`
+
+	// Subject Information about the subject for which the client is requesting information.
+	Subject Subject `json:"subject"`
+}
+
 // InteractRequest The client instance declares the parameters for interaction methods that it can support using the interact field.
 type InteractRequest struct {
 	// Finish Indicates how the client instance can receive an indication that interaction has finished at the AS.
@@ -454,6 +466,36 @@ type LimitsOutgoing struct {
 	union json.RawMessage
 }
 
+// LimitsOutgoingDebitAmount defines model for limits-outgoing-debit-amount.
+type LimitsOutgoingDebitAmount struct {
+	DebitAmount Amount `json:"debitAmount"`
+
+	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
+	Interval *Interval `json:"interval,omitempty"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver *Receiver `json:"receiver,omitempty"`
+}
+
+// LimitsOutgoingNoAmount defines model for limits-outgoing-no-amount.
+type LimitsOutgoingNoAmount struct {
+	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
+	Interval *Interval `json:"interval,omitempty"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver *Receiver `json:"receiver,omitempty"`
+}
+
+// LimitsOutgoingReceiveAmount defines model for limits-outgoing-receive-amount.
+type LimitsOutgoingReceiveAmount struct {
+	// Interval [ISO8601 repeating interval](https://en.wikipedia.org/wiki/ISO_8601#Repeating_intervals)
+	Interval      *Interval `json:"interval,omitempty"`
+	ReceiveAmount Amount    `json:"receiveAmount"`
+
+	// Receiver The URL of the incoming payment that is being paid.
+	Receiver *Receiver `json:"receiver,omitempty"`
+}
+
 // Receiver The URL of the incoming payment that is being paid.
 type Receiver = string
 
@@ -472,76 +514,11 @@ type Subject struct {
 // SubjectSubIdsFormat The format of subject identifier that the client can accept.
 type SubjectSubIdsFormat string
 
-// GrantRequest defines model for GrantRequest.
-type GrantRequest = GrantRequestBody
-
 // PostRequestJSONRequestBody defines body for PostRequest for application/json ContentType.
-type PostRequestJSONRequestBody = GrantRequestBody
+type PostRequestJSONRequestBody = GrantRequest
 
 // PostContinueJSONRequestBody defines body for PostContinue for application/json ContentType.
 type PostContinueJSONRequestBody = ContinuationRequest
-
-// AsGrantRequestWithAccessToken returns the union data inside the GrantRequestBody as a GrantRequestWithAccessToken
-func (t GrantRequestBody) AsGrantRequestWithAccessToken() (GrantRequestWithAccessToken, error) {
-	var body GrantRequestWithAccessToken
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGrantRequestWithAccessToken overwrites any union data inside the GrantRequestBody as the provided GrantRequestWithAccessToken
-func (t *GrantRequestBody) FromGrantRequestWithAccessToken(v GrantRequestWithAccessToken) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGrantRequestWithAccessToken performs a merge with any union data inside the GrantRequestBody, using the provided GrantRequestWithAccessToken
-func (t *GrantRequestBody) MergeGrantRequestWithAccessToken(v GrantRequestWithAccessToken) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsGrantRequestWithSubject returns the union data inside the GrantRequestBody as a GrantRequestWithSubject
-func (t GrantRequestBody) AsGrantRequestWithSubject() (GrantRequestWithSubject, error) {
-	var body GrantRequestWithSubject
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromGrantRequestWithSubject overwrites any union data inside the GrantRequestBody as the provided GrantRequestWithSubject
-func (t *GrantRequestBody) FromGrantRequestWithSubject(v GrantRequestWithSubject) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeGrantRequestWithSubject performs a merge with any union data inside the GrantRequestBody, using the provided GrantRequestWithSubject
-func (t *GrantRequestBody) MergeGrantRequestWithSubject(v GrantRequestWithSubject) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t GrantRequestBody) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *GrantRequestBody) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
 
 // AsAccessIncoming returns the union data inside the AccessItem as a AccessIncoming
 func (t AccessItem) AsAccessIncoming() (AccessIncoming, error) {
@@ -631,22 +608,22 @@ func (t *AccessItem) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsClientLegacy returns the union data inside the Client as a ClientLegacy
-func (t Client) AsClientLegacy() (ClientLegacy, error) {
-	var body ClientLegacy
+// AsClientWalletAddress returns the union data inside the Client as a ClientWalletAddress
+func (t Client) AsClientWalletAddress() (ClientWalletAddress, error) {
+	var body ClientWalletAddress
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromClientLegacy overwrites any union data inside the Client as the provided ClientLegacy
-func (t *Client) FromClientLegacy(v ClientLegacy) error {
+// FromClientWalletAddress overwrites any union data inside the Client as the provided ClientWalletAddress
+func (t *Client) FromClientWalletAddress(v ClientWalletAddress) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeClientLegacy performs a merge with any union data inside the Client, using the provided ClientLegacy
-func (t *Client) MergeClientLegacy(v ClientLegacy) error {
+// MergeClientWalletAddress performs a merge with any union data inside the Client, using the provided ClientWalletAddress
+func (t *Client) MergeClientWalletAddress(v ClientWalletAddress) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -657,22 +634,22 @@ func (t *Client) MergeClientLegacy(v ClientLegacy) error {
 	return err
 }
 
-// AsClientWithWalletAddress returns the union data inside the Client as a ClientWithWalletAddress
-func (t Client) AsClientWithWalletAddress() (ClientWithWalletAddress, error) {
-	var body ClientWithWalletAddress
+// AsClientDirectedIdentity returns the union data inside the Client as a ClientDirectedIdentity
+func (t Client) AsClientDirectedIdentity() (ClientDirectedIdentity, error) {
+	var body ClientDirectedIdentity
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromClientWithWalletAddress overwrites any union data inside the Client as the provided ClientWithWalletAddress
-func (t *Client) FromClientWithWalletAddress(v ClientWithWalletAddress) error {
+// FromClientDirectedIdentity overwrites any union data inside the Client as the provided ClientDirectedIdentity
+func (t *Client) FromClientDirectedIdentity(v ClientDirectedIdentity) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeClientWithWalletAddress performs a merge with any union data inside the Client, using the provided ClientWithWalletAddress
-func (t *Client) MergeClientWithWalletAddress(v ClientWithWalletAddress) error {
+// MergeClientDirectedIdentity performs a merge with any union data inside the Client, using the provided ClientDirectedIdentity
+func (t *Client) MergeClientDirectedIdentity(v ClientDirectedIdentity) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -683,22 +660,22 @@ func (t *Client) MergeClientWithWalletAddress(v ClientWithWalletAddress) error {
 	return err
 }
 
-// AsClientWithJWK returns the union data inside the Client as a ClientWithJWK
-func (t Client) AsClientWithJWK() (ClientWithJWK, error) {
-	var body ClientWithJWK
+// AsClientWalletAddressString returns the union data inside the Client as a ClientWalletAddressString
+func (t Client) AsClientWalletAddressString() (ClientWalletAddressString, error) {
+	var body ClientWalletAddressString
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromClientWithJWK overwrites any union data inside the Client as the provided ClientWithJWK
-func (t *Client) FromClientWithJWK(v ClientWithJWK) error {
+// FromClientWalletAddressString overwrites any union data inside the Client as the provided ClientWalletAddressString
+func (t *Client) FromClientWalletAddressString(v ClientWalletAddressString) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeClientWithJWK performs a merge with any union data inside the Client, using the provided ClientWithJWK
-func (t *Client) MergeClientWithJWK(v ClientWithJWK) error {
+// MergeClientWalletAddressString performs a merge with any union data inside the Client, using the provided ClientWalletAddressString
+func (t *Client) MergeClientWalletAddressString(v ClientWalletAddressString) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -719,22 +696,22 @@ func (t *Client) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsLimitsOutgoingWithoutAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingWithoutAmount
-func (t LimitsOutgoing) AsLimitsOutgoingWithoutAmount() (LimitsOutgoingWithoutAmount, error) {
-	var body LimitsOutgoingWithoutAmount
+// AsGrantRequestWithAccessToken returns the union data inside the GrantRequest as a GrantRequestWithAccessToken
+func (t GrantRequest) AsGrantRequestWithAccessToken() (GrantRequestWithAccessToken, error) {
+	var body GrantRequestWithAccessToken
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLimitsOutgoingWithoutAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingWithoutAmount
-func (t *LimitsOutgoing) FromLimitsOutgoingWithoutAmount(v LimitsOutgoingWithoutAmount) error {
+// FromGrantRequestWithAccessToken overwrites any union data inside the GrantRequest as the provided GrantRequestWithAccessToken
+func (t *GrantRequest) FromGrantRequestWithAccessToken(v GrantRequestWithAccessToken) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLimitsOutgoingWithoutAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingWithoutAmount
-func (t *LimitsOutgoing) MergeLimitsOutgoingWithoutAmount(v LimitsOutgoingWithoutAmount) error {
+// MergeGrantRequestWithAccessToken performs a merge with any union data inside the GrantRequest, using the provided GrantRequestWithAccessToken
+func (t *GrantRequest) MergeGrantRequestWithAccessToken(v GrantRequestWithAccessToken) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -745,22 +722,22 @@ func (t *LimitsOutgoing) MergeLimitsOutgoingWithoutAmount(v LimitsOutgoingWithou
 	return err
 }
 
-// AsLimitsOutgoingWithDebitAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingWithDebitAmount
-func (t LimitsOutgoing) AsLimitsOutgoingWithDebitAmount() (LimitsOutgoingWithDebitAmount, error) {
-	var body LimitsOutgoingWithDebitAmount
+// AsGrantRequestWithSubject returns the union data inside the GrantRequest as a GrantRequestWithSubject
+func (t GrantRequest) AsGrantRequestWithSubject() (GrantRequestWithSubject, error) {
+	var body GrantRequestWithSubject
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLimitsOutgoingWithDebitAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingWithDebitAmount
-func (t *LimitsOutgoing) FromLimitsOutgoingWithDebitAmount(v LimitsOutgoingWithDebitAmount) error {
+// FromGrantRequestWithSubject overwrites any union data inside the GrantRequest as the provided GrantRequestWithSubject
+func (t *GrantRequest) FromGrantRequestWithSubject(v GrantRequestWithSubject) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLimitsOutgoingWithDebitAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingWithDebitAmount
-func (t *LimitsOutgoing) MergeLimitsOutgoingWithDebitAmount(v LimitsOutgoingWithDebitAmount) error {
+// MergeGrantRequestWithSubject performs a merge with any union data inside the GrantRequest, using the provided GrantRequestWithSubject
+func (t *GrantRequest) MergeGrantRequestWithSubject(v GrantRequestWithSubject) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -771,22 +748,84 @@ func (t *LimitsOutgoing) MergeLimitsOutgoingWithDebitAmount(v LimitsOutgoingWith
 	return err
 }
 
-// AsLimitsOutgoingWithReceiveAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingWithReceiveAmount
-func (t LimitsOutgoing) AsLimitsOutgoingWithReceiveAmount() (LimitsOutgoingWithReceiveAmount, error) {
-	var body LimitsOutgoingWithReceiveAmount
+func (t GrantRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *GrantRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsLimitsOutgoingNoAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingNoAmount
+func (t LimitsOutgoing) AsLimitsOutgoingNoAmount() (LimitsOutgoingNoAmount, error) {
+	var body LimitsOutgoingNoAmount
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLimitsOutgoingWithReceiveAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingWithReceiveAmount
-func (t *LimitsOutgoing) FromLimitsOutgoingWithReceiveAmount(v LimitsOutgoingWithReceiveAmount) error {
+// FromLimitsOutgoingNoAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingNoAmount
+func (t *LimitsOutgoing) FromLimitsOutgoingNoAmount(v LimitsOutgoingNoAmount) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLimitsOutgoingWithReceiveAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingWithReceiveAmount
-func (t *LimitsOutgoing) MergeLimitsOutgoingWithReceiveAmount(v LimitsOutgoingWithReceiveAmount) error {
+// MergeLimitsOutgoingNoAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingNoAmount
+func (t *LimitsOutgoing) MergeLimitsOutgoingNoAmount(v LimitsOutgoingNoAmount) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLimitsOutgoingDebitAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingDebitAmount
+func (t LimitsOutgoing) AsLimitsOutgoingDebitAmount() (LimitsOutgoingDebitAmount, error) {
+	var body LimitsOutgoingDebitAmount
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLimitsOutgoingDebitAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingDebitAmount
+func (t *LimitsOutgoing) FromLimitsOutgoingDebitAmount(v LimitsOutgoingDebitAmount) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLimitsOutgoingDebitAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingDebitAmount
+func (t *LimitsOutgoing) MergeLimitsOutgoingDebitAmount(v LimitsOutgoingDebitAmount) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLimitsOutgoingReceiveAmount returns the union data inside the LimitsOutgoing as a LimitsOutgoingReceiveAmount
+func (t LimitsOutgoing) AsLimitsOutgoingReceiveAmount() (LimitsOutgoingReceiveAmount, error) {
+	var body LimitsOutgoingReceiveAmount
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLimitsOutgoingReceiveAmount overwrites any union data inside the LimitsOutgoing as the provided LimitsOutgoingReceiveAmount
+func (t *LimitsOutgoing) FromLimitsOutgoingReceiveAmount(v LimitsOutgoingReceiveAmount) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLimitsOutgoingReceiveAmount performs a merge with any union data inside the LimitsOutgoing, using the provided LimitsOutgoingReceiveAmount
+func (t *LimitsOutgoing) MergeLimitsOutgoingReceiveAmount(v LimitsOutgoingReceiveAmount) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
