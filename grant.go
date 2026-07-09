@@ -28,6 +28,10 @@ type GrantService struct {
 type GrantRequestParams struct {
 	URL         string // Auth server URL
 	RequestBody as.GrantRequest
+	// ClientOverride, when set, replaces the default wallet-address client
+	// identification with a JWK (directed identity). Per spec, only valid for
+	// non-interactive grants (e.g. incoming payments).
+	ClientOverride *as.ClientDirectedIdentity
 }
 
 type GrantCancelParams struct {
@@ -61,9 +65,15 @@ func (gr *Grant) IsGranted() bool {
 
 // decodes the union grant request and sets the client field on the
 // underlying concrete struct. GrantRequest wraps json.RawMessage
-// so we can't assign to .Client directly.
-func (gs *GrantService) setClient(body as.GrantRequest) (as.GrantRequest, error) {
-	client := as.ClientWalletAddress{WalletAddress: gs.client}
+// so we can't assign to .Client directly. If override is non-nil, the client
+// is identified by JWK (directed identity) instead of the default wallet address.
+func (gs *GrantService) setClient(body as.GrantRequest, override *as.ClientDirectedIdentity) (as.GrantRequest, error) {
+	setOn := func(c *as.Client) error {
+		if override != nil {
+			return c.FromClientDirectedIdentity(*override)
+		}
+		return c.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client})
+	}
 
 	tokenReq, err := body.AsGrantRequestWithAccessToken()
 	if err != nil {
@@ -75,7 +85,7 @@ func (gs *GrantService) setClient(body as.GrantRequest) (as.GrantRequest, error)
 		if err != nil {
 			return as.GrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
 		}
-		if err := subjectReq.Client.FromClientWalletAddress(client); err != nil {
+		if err := setOn(&subjectReq.Client); err != nil {
 			return as.GrantRequest{}, err
 		}
 		if err := body.FromGrantRequestWithSubject(subjectReq); err != nil {
@@ -84,7 +94,7 @@ func (gs *GrantService) setClient(body as.GrantRequest) (as.GrantRequest, error)
 		return body, nil
 	}
 
-	if err := tokenReq.Client.FromClientWalletAddress(client); err != nil {
+	if err := setOn(&tokenReq.Client); err != nil {
 		return as.GrantRequest{}, err
 	}
 	if err := body.FromGrantRequestWithAccessToken(tokenReq); err != nil {
@@ -94,7 +104,7 @@ func (gs *GrantService) setClient(body as.GrantRequest) (as.GrantRequest, error)
 }
 
 func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	body, err := gs.setClient(params.RequestBody)
+	body, err := gs.setClient(params.RequestBody, params.ClientOverride)
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to set client: %w", err)
 	}

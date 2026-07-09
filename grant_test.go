@@ -195,3 +195,74 @@ func TestGrantRequest_WithSubject(t *testing.T) {
 	assert.True(t, ok, "client should be injected as an object")
 	assert.Equal(t, walletAddress, clientObj["walletAddress"])
 }
+
+func TestGrantRequest_WithClientOverride(t *testing.T) {
+	var receivedBody []byte
+	mockResponse := openpayments.Grant{
+		AccessToken: &as.AccessToken{
+			Value:  "test-access-token",
+			Manage: "https://auth.example.com/token/123",
+			Access: []as.AccessItem{},
+		},
+		Continue: as.Continue{
+			Uri: "https://auth.example.com/continue/123",
+			AccessToken: struct {
+				Value string `json:"value"`
+			}{
+				Value: "continue-token",
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(server.Client()))
+	if err != nil {
+		log.Fatalf("Failed to initialize authenticated client: %v", err)
+	}
+
+	incomingAccess := as.AccessIncoming{
+		Type:    as.IncomingPayment,
+		Actions: []as.AccessIncomingActions{as.AccessIncomingActionsCreate},
+	}
+	accessItem := as.AccessItem{}
+	assert.NoError(t, accessItem.FromAccessIncoming(incomingAccess))
+
+	var requestBody as.GrantRequest
+	err = requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+	})
+	assert.NoError(t, err)
+
+	jwk := as.JsonWebKey{
+		Kid: "key1",
+		Alg: "EdDSA",
+		Kty: "OKP",
+		Crv: "Ed25519",
+		X:   "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+	}
+
+	_, err = client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+		URL:            server.URL + "/",
+		RequestBody:    requestBody,
+		ClientOverride: &as.ClientDirectedIdentity{Jwk: jwk},
+	})
+	assert.NoError(t, err)
+
+	var sent map[string]any
+	assert.NoError(t, json.Unmarshal(receivedBody, &sent))
+	clientObj, ok := sent["client"].(map[string]any)
+	assert.True(t, ok, "client should be an object")
+	assert.NotContains(t, clientObj, "walletAddress", "override should replace wallet address")
+	sentJwk, ok := clientObj["jwk"].(map[string]any)
+	assert.True(t, ok, "client.jwk should be present")
+	assert.Equal(t, "override-key", sentJwk["kid"])
+	assert.Equal(t, "EdDSA", sentJwk["alg"])
+}
