@@ -124,7 +124,7 @@ func TestGrantRequest(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.True(t, grant.IsGranted())
+	assert.True(t, grant.IsGrantedWithAccessToken())
 	assert.Equal(t, "test-access-token", grant.AccessToken.Value)
 
 	assert.Equal(t, 1, spy.CallCount())
@@ -132,6 +132,37 @@ func TestGrantRequest(t *testing.T) {
 	assert.Equal(t, http.MethodPost, capture.Method)
 	assert.Equal(t, "application/json", capture.Header.Get("Content-Type"))
 	assert.Equal(t, mockServer.URL+reqPath, capture.URL.String())
+}
+
+func TestGrantGrantedStatus(t *testing.T) {
+	tests := []struct {
+		name                string
+		grant               openpayments.Grant
+		wantWithAccessToken bool
+		wantWithSubject     bool
+	}{
+		{
+			name:                "access token grant",
+			grant:               openpayments.Grant{AccessToken: &as.AccessToken{}},
+			wantWithAccessToken: true,
+		},
+		{
+			name:            "subject grant",
+			grant:           openpayments.Grant{Subject: &as.Subject{}},
+			wantWithSubject: true,
+		},
+		{
+			name:  "pending grant",
+			grant: openpayments.Grant{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantWithAccessToken, tt.grant.IsGrantedWithAccessToken())
+			assert.Equal(t, tt.wantWithSubject, tt.grant.IsGrantedWithSubject())
+		})
+	}
 }
 
 func TestGrantRequest_WithSubject(t *testing.T) {
@@ -194,6 +225,46 @@ func TestGrantRequest_WithSubject(t *testing.T) {
 	clientObj, ok := sent["client"].(map[string]any)
 	assert.True(t, ok, "client should be injected as an object")
 	assert.Equal(t, walletAddress, clientObj["walletAddress"])
+}
+
+func TestGrantRequest_WithAccessTokenAndSubject(t *testing.T) {
+	var receivedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(openpayments.Grant{
+			AccessToken: &as.AccessToken{},
+			Continue:    as.Continue{},
+		})
+	}))
+	defer server.Close()
+
+	client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(server.Client()))
+	assert.NoError(t, err)
+
+	accessItem := as.AccessItem{}
+	assert.NoError(t, accessItem.FromAccessIncoming(as.AccessIncoming{
+		Type:    as.IncomingPayment,
+		Actions: []as.AccessIncomingActions{as.AccessIncomingActionsCreate},
+	}))
+
+	var requestBody as.GrantRequest
+	assert.NoError(t, requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{Access: []as.AccessItem{accessItem}},
+		Subject:     &as.Subject{},
+	}))
+
+	_, err = client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+		URL:         server.URL,
+		RequestBody: requestBody,
+	})
+	assert.NoError(t, err)
+
+	var sent map[string]any
+	assert.NoError(t, json.Unmarshal(receivedBody, &sent))
+	assert.NotNil(t, sent["access_token"])
+	assert.NotNil(t, sent["subject"])
+	assert.NotContains(t, sent, "interact", "access-token variant should be preserved")
 }
 
 func TestGrantRequest_WithClientOverride(t *testing.T) {

@@ -133,42 +133,42 @@ func (op *OutgoingPaymentService) List(ctx context.Context, params OutgoingPayme
 }
 
 // TODO: ensure this works with/without quoteId in the params.payload
-func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPaymentCreateParams) (rs.OutgoingPayment, error) {
+func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPaymentCreateParams) (rs.OutgoingPaymentWithSpentAmounts, error) {
 	if params.BaseURL == "" || params.AccessToken == "" {
-		return rs.OutgoingPayment{}, fmt.Errorf("missing required base url or access token")
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("missing required base url or access token")
 	}
 
 	payloadBytes, err := json.Marshal(params.Payload)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to marshal payload: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	fullURL, err := url.JoinPath(params.BaseURL, "outgoing-payments")
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to construct URL: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to construct URL: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to create request: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := op.DoSigned(req)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("request failed: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.OutgoingPayment{}, newClientErrorFromResponse(req, resp)
+		return rs.OutgoingPaymentWithSpentAmounts{}, newClientErrorFromResponse(req, resp)
 	}
 
-	var outgoingPayment rs.OutgoingPayment
+	var outgoingPayment rs.OutgoingPaymentWithSpentAmounts
 	err = json.NewDecoder(resp.Body).Decode(&outgoingPayment)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to decode response body: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return outgoingPayment, nil
