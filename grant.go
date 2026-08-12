@@ -59,8 +59,21 @@ func (gr *Grant) IsInteractive() bool {
 	return gr.Interact != nil
 }
 
+// IsGranted reports whether the grant contains an access token.
+//
+// Deprecated: use IsGrantedWithAccessToken instead.
 func (gr *Grant) IsGranted() bool {
+	return gr.IsGrantedWithAccessToken()
+}
+
+// IsGrantedWithAccessToken reports whether the grant contains an access token.
+func (gr *Grant) IsGrantedWithAccessToken() bool {
 	return gr.AccessToken != nil
+}
+
+// IsGrantedWithSubject reports whether the grant contains subject information.
+func (gr *Grant) IsGrantedWithSubject() bool {
+	return gr.Subject != nil
 }
 
 type parsedGrantRequest struct {
@@ -75,7 +88,9 @@ func parseRequest(body as.GrantRequest) (parsedGrantRequest, error) {
 		return parsedGrantRequest{}, fmt.Errorf("invalid grant request body: %w", err)
 	}
 
-	if tokenReq.Subject != nil {
+	// AccessToken is generated as a value, so its required Access slice is nil
+	// when the access_token property was absent from the union payload.
+	if tokenReq.AccessToken.Access == nil && tokenReq.Subject != nil {
 		subjectReq, err := body.AsGrantRequestWithSubject()
 		if err != nil {
 			return parsedGrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
