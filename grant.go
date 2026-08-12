@@ -27,7 +27,11 @@ type GrantService struct {
 
 type GrantRequestParams struct {
 	URL         string // Auth server URL
-	RequestBody as.GrantRequestWithAccessToken
+	RequestBody as.GrantRequest
+	// ClientOverride, when set, replaces the default wallet-address client
+	// identification with a JWK (directed identity). Per spec, only valid for
+	// non-interactive grants (e.g. incoming payments).
+	ClientOverride *as.ClientDirectedIdentity
 }
 
 type GrantCancelParams struct {
@@ -47,6 +51,7 @@ type GrantContinueParams struct {
 type Grant struct {
 	Interact    *as.InteractResponse `json:"interact,omitempty"`
 	AccessToken *as.AccessToken      `json:"access_token,omitempty"`
+	Subject     *as.Subject          `json:"subject,omitempty"`
 	Continue    as.Continue          `json:"continue"`
 }
 
@@ -54,14 +59,81 @@ func (gr *Grant) IsInteractive() bool {
 	return gr.Interact != nil
 }
 
+// IsGranted reports whether the grant contains an access token.
+//
+// Deprecated: use IsGrantedWithAccessToken instead.
 func (gr *Grant) IsGranted() bool {
+	return gr.IsGrantedWithAccessToken()
+}
+
+// IsGrantedWithAccessToken reports whether the grant contains an access token.
+func (gr *Grant) IsGrantedWithAccessToken() bool {
 	return gr.AccessToken != nil
 }
 
-func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
-	params.RequestBody.Client = gs.client
+// IsGrantedWithSubject reports whether the grant contains subject information.
+func (gr *Grant) IsGrantedWithSubject() bool {
+	return gr.Subject != nil
+}
 
-	reqBodyBytes, err := json.Marshal(params.RequestBody)
+type parsedGrantRequest struct {
+	Client *as.Client
+	encode func() (as.GrantRequest, error)
+}
+
+// decodes body into whichever concrete variant the caller built (access-token or subject)
+func parseRequest(body as.GrantRequest) (parsedGrantRequest, error) {
+	tokenReq, err := body.AsGrantRequestWithAccessToken()
+	if err != nil {
+		return parsedGrantRequest{}, fmt.Errorf("invalid grant request body: %w", err)
+	}
+
+	// AccessToken is generated as a value, so its required Access slice is nil
+	// when the access_token property was absent from the union payload.
+	if tokenReq.AccessToken.Access == nil && tokenReq.Subject != nil {
+		subjectReq, err := body.AsGrantRequestWithSubject()
+		if err != nil {
+			return parsedGrantRequest{}, fmt.Errorf("invalid subject grant request body: %w", err)
+		}
+		return parsedGrantRequest{
+			Client: &subjectReq.Client,
+			encode: func() (as.GrantRequest, error) {
+				var g as.GrantRequest
+				return g, g.FromGrantRequestWithSubject(subjectReq)
+			},
+		}, nil
+	}
+
+	return parsedGrantRequest{
+		Client: &tokenReq.Client,
+		encode: func() (as.GrantRequest, error) {
+			var g as.GrantRequest
+			return g, g.FromGrantRequestWithAccessToken(tokenReq)
+		},
+	}, nil
+}
+
+func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) (Grant, error) {
+	parsed, err := parseRequest(params.RequestBody)
+	if err != nil {
+		return Grant{}, err
+	}
+
+	if params.ClientOverride != nil {
+		err = parsed.Client.FromClientDirectedIdentity(*params.ClientOverride)
+	} else {
+		err = parsed.Client.FromClientWalletAddress(as.ClientWalletAddress{WalletAddress: gs.client})
+	}
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to set client: %w", err)
+	}
+
+	body, err := parsed.encode()
+	if err != nil {
+		return Grant{}, fmt.Errorf("failed to encode grant request body: %w", err)
+	}
+
+	reqBodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return Grant{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
@@ -101,10 +173,9 @@ func (gs *GrantService) Continue(ctx context.Context, params GrantContinueParams
 		return Grant{}, fmt.Errorf("invalid continuation grant URL: %s", params.URL)
 	}
 
-	requestBody := map[string]string{}
-
+	requestBody := as.ContinuationRequest{}
 	if params.InteractRef != "" {
-		requestBody["interact_ref"] = params.InteractRef
+		requestBody.InteractRef = &params.InteractRef
 	}
 
 	bodyBytes, err := json.Marshal(requestBody)

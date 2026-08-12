@@ -50,7 +50,7 @@ type IncomingPaymentListResponse struct {
 type IncomingPaymentCreateParams struct {
 	BaseURL     string // The base URL for creating an incoming payment
 	AccessToken string
-	Payload     rs.CreateIncomingPaymentJSONBody
+	Payload     rs.CreateIncomingPaymentRequest
 }
 
 type IncomingPaymentCompleteParams struct {

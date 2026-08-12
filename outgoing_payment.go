@@ -39,6 +39,16 @@ type OutgoingPaymentCreateParams struct {
 	Payload     rs.CreateOutgoingPaymentRequest
 }
 
+type OutgoingPaymentGrantGetParams struct {
+	BaseURL     string // The base URL of the wallet address.
+	AccessToken string
+}
+
+type OutgoingPaymentGrantSpentAmounts struct {
+	SpentReceiveAmount *rs.Amount `json:"spentReceiveAmount"`
+	SpentDebitAmount   *rs.Amount `json:"spentDebitAmount"`
+}
+
 func (op *OutgoingPaymentService) Get(ctx context.Context, params OutgoingPaymentGetParams) (rs.OutgoingPayment, error) {
 	if params.URL == "" || params.AccessToken == "" {
 		return rs.OutgoingPayment{}, fmt.Errorf("missing required url or access token")
@@ -123,43 +133,79 @@ func (op *OutgoingPaymentService) List(ctx context.Context, params OutgoingPayme
 }
 
 // TODO: ensure this works with/without quoteId in the params.payload
-func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPaymentCreateParams) (rs.OutgoingPayment, error) {
+func (op *OutgoingPaymentService) Create(ctx context.Context, params OutgoingPaymentCreateParams) (rs.OutgoingPaymentWithSpentAmounts, error) {
 	if params.BaseURL == "" || params.AccessToken == "" {
-		return rs.OutgoingPayment{}, fmt.Errorf("missing required base url or access token")
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("missing required base url or access token")
 	}
 
 	payloadBytes, err := json.Marshal(params.Payload)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to marshal payload: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	fullURL, err := url.JoinPath(params.BaseURL, "outgoing-payments")
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to construct URL: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to construct URL: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to create request: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
 
 	resp, err := op.DoSigned(req)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("request failed: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return rs.OutgoingPayment{}, newClientErrorFromResponse(req, resp)
+		return rs.OutgoingPaymentWithSpentAmounts{}, newClientErrorFromResponse(req, resp)
 	}
 
-	var outgoingPayment rs.OutgoingPayment
+	var outgoingPayment rs.OutgoingPaymentWithSpentAmounts
 	err = json.NewDecoder(resp.Body).Decode(&outgoingPayment)
 	if err != nil {
-		return rs.OutgoingPayment{}, fmt.Errorf("failed to decode response body: %w", err)
+		return rs.OutgoingPaymentWithSpentAmounts{}, fmt.Errorf("failed to decode response body: %w", err)
 	}
 
 	return outgoingPayment, nil
+}
+
+func (op *OutgoingPaymentService) GetGrantSpentAmounts(ctx context.Context, params OutgoingPaymentGrantGetParams) (OutgoingPaymentGrantSpentAmounts, error) {
+	if params.BaseURL == "" || params.AccessToken == "" {
+		return OutgoingPaymentGrantSpentAmounts{}, fmt.Errorf("missing required base url or access token")
+	}
+
+	fullURL, err := url.JoinPath(params.BaseURL, "outgoing-payment-grant")
+	if err != nil {
+		return OutgoingPaymentGrantSpentAmounts{}, fmt.Errorf("failed to construct URL: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return OutgoingPaymentGrantSpentAmounts{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("GNAP %s", params.AccessToken))
+
+	resp, err := op.DoSigned(req)
+	if err != nil {
+		return OutgoingPaymentGrantSpentAmounts{}, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return OutgoingPaymentGrantSpentAmounts{}, newClientErrorFromResponse(req, resp)
+	}
+
+	var spentAmounts OutgoingPaymentGrantSpentAmounts
+	err = json.NewDecoder(resp.Body).Decode(&spentAmounts)
+	if err != nil {
+		return OutgoingPaymentGrantSpentAmounts{}, fmt.Errorf("failed to decode response body: %w", err)
+	}
+
+	return spentAmounts, nil
 }

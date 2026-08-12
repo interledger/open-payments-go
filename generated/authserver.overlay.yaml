@@ -1,13 +1,13 @@
 overlay: 1.0.0
 info:
-  title: Name Grant request body and branches (no discriminator)
-  version: 0.2.0
+  title: Extract access_token to named AccessTokenRequest schema
+  version: 0.3.0
 x-speakeasy-jsonpath: rfc9535
 
 extends: ../open-payments-specifications/openapi/auth-server.yaml
 
 actions:
-  # Named schema for access token in grant requests
+  # Extract inline access_token objects to named AccessTokenRequest schema
   - target: $.components.schemas
     update:
       AccessTokenRequest:
@@ -18,50 +18,16 @@ actions:
           access:
             $ref: "#/components/schemas/access"
 
-      GrantRequestWithAccessToken:
-        type: object
-        properties:
-          client:
-            $ref: "#/components/schemas/client"
-          interact:
-            $ref: "#/components/schemas/interact-request"
-          access_token:
-            $ref: "#/components/schemas/AccessTokenRequest"
-          subject:
-            $ref: "#/components/schemas/subject"
-        required: [client, access_token]
-
-      GrantRequestWithSubject:
-        type: object
-        properties:
-          client:
-            $ref: "#/components/schemas/client"
-          interact:
-            $ref: "#/components/schemas/interact-request"
-          access_token:
-            $ref: "#/components/schemas/AccessTokenRequest"
-          subject:
-            $ref: "#/components/schemas/subject"
-        required: [client, interact, subject]
-
-      # Named union instead of "PostRequestJSONBody"
-      GrantRequestBody:
-        oneOf:
-          - $ref: "#/components/schemas/GrantRequestWithAccessToken"
-          - $ref: "#/components/schemas/GrantRequestWithSubject"
-
-  # Named requestBody using the union
-  - target: $.components
+  - target: $.components.schemas['grant-request-with-access-token'].properties.access_token
+    remove: true
+  - target: $.components.schemas['grant-request-with-access-token'].properties
     update:
-      requestBodies:
-        GrantRequest:
-          required: true
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GrantRequestBody"
+      access_token:
+        $ref: "#/components/schemas/AccessTokenRequest"
 
-  # Specify requestBody on POST /
-  - target: $.paths["/"].post.requestBody
+  - target: $.components.schemas['grant-request-with-subject'].properties.access_token
+    remove: true
+  - target: $.components.schemas['grant-request-with-subject'].properties
     update:
-      $ref: "#/components/requestBodies/GrantRequest"
+      access_token:
+        $ref: "#/components/schemas/AccessTokenRequest"

@@ -85,21 +85,6 @@ func TestUnauthedWalletAddressGetKeys(t *testing.T) {
 	printJSON(t, walletAddressKeys)
 }
 
-func TestUnauthedWalletAddressGetDIDDocument(t *testing.T) {
-	t.Skip("Skipping: DID Document endpoint not implemented in Rafiki yet")
-
-	url := environment.ReceiverWalletAddressUrl
-	t.Logf("\nunauthedClient.WalletAddress.GetDIDDocument(\"%s\")\n", url)
-
-	didDocument, err := unauthedClient.WalletAddress.GetDIDDocument(context.TODO(), op.WalletAddressGetDIDDocumentParams{
-		URL: url,
-	})
-	if err != nil {
-		t.Fatalf("Error fetching wallet address DID document: %v\n", err)
-	}
-
-	printJSON(t, didDocument)
-}
 
 func TestUnauthedGetPublicIncomingPayment(t *testing.T) {
 	grant, err := newIncomingPaymentGrant()
@@ -173,10 +158,13 @@ func TestGrantRequestIncomingPayment(t *testing.T) {
 		t.Fatalf("Error creating AccessItem: %v", err)
 	}
 
-	requestBody := as.GrantRequestWithAccessToken{
+	var requestBody as.GrantRequest
+	if err := requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		t.Fatalf("Error creating grant request body: %v", err)
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -279,7 +267,7 @@ func TestCreateIncomingPayment(t *testing.T) {
 	t.Logf("\nauthedClient.IncomingPayment.Create(\"%s\")\n", url)
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	payload := rs.CreateIncomingPaymentJSONBody{
+	payload := rs.CreateIncomingPaymentRequest{
 		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &rs.Amount{
 			Value:      "100",
@@ -382,10 +370,13 @@ func TestCreateAndGetQuote(t *testing.T) {
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		t.Fatalf("Error creating AccessItem for quote: %v", err)
 	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
+	var quoteGrantRequestBody as.GrantRequest
+	if err := quoteGrantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		t.Fatalf("Error creating quote grant request body: %v", err)
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -404,7 +395,7 @@ func TestCreateAndGetQuote(t *testing.T) {
 	}
 
 	// Create the Quote
-	createQuotePayload := rs.CreateQuoteJSONBody0{
+	createQuotePayload := rs.CreateQuoteRequestByReceiver{
 		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *newIncomingPayment.Id,
 		Method:        "ilp",
@@ -506,7 +497,7 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 	}
 
 	var paymentPayload rs.CreateOutgoingPaymentRequest
-	err = paymentPayload.FromCreateOutgoingPaymentWithQuote(rs.CreateOutgoingPaymentWithQuote{
+	err = paymentPayload.FromCreateOutgoingPaymentRequestFromQuote(rs.CreateOutgoingPaymentRequestFromQuote{
 		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		QuoteId:             *newQuote.Id,
 		Metadata: &map[string]interface{}{
@@ -580,6 +571,92 @@ func TestCreateAndGetOutgoingPayment(t *testing.T) {
 
 }
 
+
+func TestGetOutgoingPaymentGrantSpentAmounts(t *testing.T) {
+	incomingPaymentGrant, err := newIncomingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting grant for incoming payment: %v", err)
+	}
+	newIncomingPayment, err := newIncomingPayment(incomingPaymentGrant)
+	if err != nil {
+		t.Fatalf("Error creating new incoming payment: %v", err)
+	}
+	newQuote, err := newQuote(newIncomingPayment)
+	if err != nil {
+		t.Fatalf("Error creating quote: %v", err)
+	}
+
+	grant, err := newOutgoingPaymentGrant()
+	if err != nil {
+		t.Fatalf("Error requesting outgoing payment grant: %v", err)
+	}
+
+	if grant.Interact == nil || grant.Interact.Redirect == "" {
+		t.Fatal("Missing interact.redirect URL in grant response")
+	}
+
+	t.Logf("Opening consent URL: %s", grant.Interact.Redirect)
+	err = environment.Consent(context.TODO(), grant.Interact.Redirect)
+	if err != nil {
+		t.Fatalf("Error completing browser consent: %v", err)
+	}
+
+	time.Sleep(time.Duration(*grant.Continue.Wait) * time.Second)
+
+	continuedGrant, err := authedClient.Grant.Continue(context.TODO(), op.GrantContinueParams{
+		URL:         grant.Continue.Uri,
+		AccessToken: grant.Continue.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error continuing grant: %v", err)
+	}
+
+	var paymentPayload rs.CreateOutgoingPaymentRequest
+	err = paymentPayload.FromCreateOutgoingPaymentRequestFromQuote(rs.CreateOutgoingPaymentRequestFromQuote{
+		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
+		QuoteId:             *newQuote.Id,
+	})
+	if err != nil {
+		t.Fatalf("Error creating outgoing payment payload: %v", err)
+	}
+
+	_, err = authedClient.OutgoingPayment.Create(context.TODO(), op.OutgoingPaymentCreateParams{
+		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
+		AccessToken: continuedGrant.AccessToken.Value,
+		Payload:     paymentPayload,
+	})
+	if err != nil {
+		t.Fatalf("Error creating outgoing payment: %v", err)
+	}
+
+	t.Logf("\nauthedClient.OutgoingPayment.GetGrantSpentAmounts(\"%s\")\n", environment.SenderOpenPaymentsResourceUrl)
+
+	spentAmounts, err := authedClient.OutgoingPayment.GetGrantSpentAmounts(context.TODO(), op.OutgoingPaymentGrantGetParams{
+		BaseURL:     environment.SenderOpenPaymentsResourceUrl,
+		AccessToken: continuedGrant.AccessToken.Value,
+	})
+	if err != nil {
+		t.Fatalf("Error getting outgoing payment grant spent amounts: %v", err)
+	}
+
+	printJSON(t, spentAmounts)
+
+	if spentAmounts.SpentDebitAmount == nil {
+		t.Errorf("Expected SpentDebitAmount to be non-nil after outgoing payment")
+	}
+	if spentAmounts.SpentReceiveAmount == nil {
+		t.Fatalf("Expected SpentReceiveAmount to be non-nil after outgoing payment")
+	}
+	if spentAmounts.SpentReceiveAmount.Value != "1" {
+		t.Errorf("Expected SpentReceiveAmount.Value to be 1, got %s", spentAmounts.SpentReceiveAmount.Value)
+	}
+	if spentAmounts.SpentReceiveAmount.AssetCode != environment.ReceiverAssetCode {
+		t.Errorf("Expected SpentReceiveAmount.AssetCode to be %s, got %s", environment.ReceiverAssetCode, spentAmounts.SpentReceiveAmount.AssetCode)
+	}
+	if spentAmounts.SpentReceiveAmount.AssetScale != environment.ReceiverAssetScale {
+		t.Errorf("Expected SpentReceiveAmount.AssetScale to be %d, got %d", environment.ReceiverAssetScale, spentAmounts.SpentReceiveAmount.AssetScale)
+	}
+}
 
 func TestRotateToken(t *testing.T) {
 	newIncomingPaymentGrant, err := newIncomingPaymentGrant()
@@ -669,10 +746,13 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 		return nil, fmt.Errorf("Error creating AccessItem: %w", err)
 	}
 
-	requestBody := as.GrantRequestWithAccessToken{
+	var requestBody as.GrantRequest
+	if err := requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		return nil, fmt.Errorf("Error creating grant request body: %w", err)
 	}
 
 	grant, err := authedClient.Grant.Request(
@@ -693,7 +773,7 @@ func newIncomingPaymentGrant() (*op.Grant, error) {
 func newIncomingPayment(grant *op.Grant) (*rs.IncomingPaymentWithMethods, error) {
 	url := environment.ReceiverOpenPaymentsResourceUrl
 	expiresAt := time.Now().Add(24 * time.Hour)
-	payload := rs.CreateIncomingPaymentJSONBody{
+	payload := rs.CreateIncomingPaymentRequest{
 		WalletAddressSchema: environment.ResolvedReceiverWalletAddressUrl,
 		IncomingAmount: &rs.Amount{
 			Value:      "1",
@@ -729,10 +809,13 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	if err := accessItem.FromAccessQuote(quoteAccess); err != nil {
 		return nil, fmt.Errorf("error creating AccessItem for quote: %w", err)
 	}
-	quoteGrantRequestBody := as.GrantRequestWithAccessToken{
+	var quoteGrantRequestBody as.GrantRequest
+	if err := quoteGrantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
 		AccessToken: as.AccessTokenRequest{
 			Access: []as.AccessItem{accessItem},
 		},
+	}); err != nil {
+		return nil, fmt.Errorf("error creating quote grant request body: %w", err)
 	}
 
 	quoteGrant, err := authedClient.Grant.Request(
@@ -748,7 +831,7 @@ func newQuote(incomingPayment *rs.IncomingPaymentWithMethods) (*rs.Quote, error)
 	}
 
 	// Create the Quote
-	createQuotePayload := rs.CreateQuoteJSONBody0{
+	createQuotePayload := rs.CreateQuoteRequestByReceiver{
 		WalletAddressSchema: environment.ResolvedSenderWalletAddressUrl,
 		Receiver:      *incomingPayment.Id,
 		Method:        "ilp",
@@ -784,16 +867,21 @@ func newOutgoingPaymentGrant() (*op.Grant, error) {
 		Start: []as.InteractRequestStart{as.InteractRequestStartRedirect},
 	}
 
+	var grantRequestBody as.GrantRequest
+	if err := grantRequestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+		AccessToken: as.AccessTokenRequest{
+			Access: []as.AccessItem{accessItem},
+		},
+		Interact: interact,
+	}); err != nil {
+		return nil, fmt.Errorf("error creating grant request body: %w", err)
+	}
+
 	grant, err := authedClient.Grant.Request(
 		context.TODO(),
 		op.GrantRequestParams{
 			URL:         environment.SenderOpenPaymentsAuthUrl,
-			RequestBody: as.GrantRequestWithAccessToken{
-				AccessToken: as.AccessTokenRequest{
-					Access: []as.AccessItem{accessItem},
-				},
-				Interact: interact,
-			},
+			RequestBody: grantRequestBody,
 		},
 	)
 	if err != nil {
