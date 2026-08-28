@@ -344,6 +344,7 @@ func TestGrantRequest_WithCardAuthorization(t *testing.T) {
 	tests := []struct {
 		name              string
 		cardAuthorization as.CardAuthorization
+		wantError         string
 	}{
 		{
 			name: "Card Authorization with PIN",
@@ -364,6 +365,15 @@ func TestGrantRequest_WithCardAuthorization(t *testing.T) {
 				TlvData:   "9F26089F27019F1002",
 				RequestId: "9148BD21-863C-4C4B-9E8F-24F01EB6B3DD",
 			},
+		},
+		{
+			name: "Card Authorization with PIN but without PWK",
+			cardAuthorization: as.CardAuthorization{
+				TlvData:   "9F26089F27019F1002",
+				PinBlock:  &pinBlock,
+				RequestId: "D01A53B6-9752-490C-9865-42753E186823",
+			},
+			wantError: "invalid grant request body: access item 0: card authorization pwk is required when pinBlock is provided",
 		},
 	}
 
@@ -421,6 +431,11 @@ func TestGrantRequest_WithCardAuthorization(t *testing.T) {
 				URL:         server.URL + "/",
 				RequestBody: requestBody,
 			})
+			if tt.wantError != "" {
+				assert.EqualError(t, err, tt.wantError)
+				assert.Empty(t, receivedBody)
+				return
+			}
 			assert.NoError(t, err)
 
 			var sentRequest as.GrantRequest
