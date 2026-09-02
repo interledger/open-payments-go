@@ -156,6 +156,9 @@ type AccessOutgoing struct {
 	// Actions The types of actions the client instance will take at the RS as an array of strings.
 	Actions []AccessOutgoingActions `json:"actions"`
 
+	// CardAuthorization Card (EMV) authorization data on an outgoing-payment access; its presence marks a card authorization — the credentials in a grant request, the result in a grant response.
+	CardAuthorization *CardAuthorization `json:"cardAuthorization,omitempty"`
+
 	// Identifier A string identifier indicating a specific resource at the RS.
 	Identifier string `json:"identifier"`
 
@@ -212,6 +215,21 @@ type Amount struct {
 
 	// Value The value is an unsigned 64-bit integer amount, represented as a string.
 	Value string `json:"value"`
+}
+
+// CardAuthorization Card (EMV) authorization data on an outgoing-payment access; its presence marks a card authorization — the credentials in a grant request, the result in a grant response.
+type CardAuthorization struct {
+	// PinBlock The PIN block, encrypted under the PIN Working Key (PWK). Omitted when no PIN was captured.
+	PinBlock *string `json:"pinBlock,omitempty"`
+
+	// Pwk The PIN Working Key (PWK) used to encrypt the PIN block.
+	Pwk *PinWorkingKey `json:"pwk,omitempty"`
+
+	// RequestId Client-generated identifier for the request; replaying it MUST return the same value as the one given in the original grant request.
+	RequestId string `json:"requestId"`
+
+	// TlvData Card data on a request, the authorization result on a response, as EMV TLV.
+	TlvData string `json:"tlvData"`
 }
 
 // Client Client identification for grant requests.
@@ -494,6 +512,18 @@ type LimitsOutgoingReceiveAmount struct {
 
 	// Receiver The URL of the incoming payment that is being paid.
 	Receiver *Receiver `json:"receiver,omitempty"`
+}
+
+// PinWorkingKey The PIN Working Key (PWK) used to encrypt the PIN block.
+type PinWorkingKey struct {
+	// Iv Initialization vector.
+	Iv string `json:"iv"`
+
+	// Key The encrypted key material.
+	Key string `json:"key"`
+
+	// Kvc Key Check Value of the key.
+	Kvc string `json:"kvc"`
 }
 
 // Receiver The URL of the incoming payment that is being paid.

@@ -337,3 +337,106 @@ func TestGrantRequest_WithClientOverride(t *testing.T) {
 	assert.Equal(t, "key1", sentJwk["kid"])
 	assert.Equal(t, "EdDSA", sentJwk["alg"])
 }
+
+func TestGrantRequest_WithCardAuthorization(t *testing.T) {
+	pinBlock := "23e412341234"
+
+	tests := []struct {
+		name              string
+		cardAuthorization as.CardAuthorization
+	}{
+		{
+			name: "Card Authorization with PIN",
+			cardAuthorization: as.CardAuthorization{
+				TlvData:  "9F26089F27019F1002",
+				PinBlock: &pinBlock,
+				Pwk: &as.PinWorkingKey{
+					Key: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4",
+					Kvc: "A3F1C2",
+					Iv:  "00000000000000000000000000000000",
+				},
+				RequestId: "D01A53B6-9752-490C-9865-42753E186823",
+			},
+		},
+		{
+			name: "Card Authorization without PIN",
+			cardAuthorization: as.CardAuthorization{
+				TlvData:   "9F26089F27019F1002",
+				RequestId: "9148BD21-863C-4C4B-9E8F-24F01EB6B3DD",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestAccessItem := as.AccessItem{}
+			err := requestAccessItem.FromAccessOutgoing(as.AccessOutgoing{
+				Type:              as.OutgoingPayment,
+				Actions:           []as.AccessOutgoingActions{as.AccessOutgoingActionsCreate, as.AccessOutgoingActionsRead},
+				Identifier:        walletAddress,
+				CardAuthorization: &tt.cardAuthorization,
+			})
+			assert.NoError(t, err)
+
+			var requestBody as.GrantRequest
+			err = requestBody.FromGrantRequestWithAccessToken(as.GrantRequestWithAccessToken{
+				AccessToken: as.AccessTokenRequest{Access: []as.AccessItem{requestAccessItem}},
+			})
+			assert.NoError(t, err)
+
+			responseCardAuthorization := &as.CardAuthorization{
+				TlvData:   "8A023030...",
+				RequestId: tt.cardAuthorization.RequestId,
+			}
+			responseAccessItem := as.AccessItem{}
+			err = responseAccessItem.FromAccessOutgoing(as.AccessOutgoing{
+				Type:              as.OutgoingPayment,
+				Actions:           []as.AccessOutgoingActions{as.AccessOutgoingActionsCreate, as.AccessOutgoingActionsRead},
+				Identifier:        walletAddress,
+				CardAuthorization: responseCardAuthorization,
+			})
+			assert.NoError(t, err)
+
+			mockResponse := openpayments.Grant{
+				AccessToken: &as.AccessToken{
+					Value:  "test-access-token",
+					Manage: "https://auth.example.com/token/123",
+					Access: []as.AccessItem{responseAccessItem},
+				},
+				Continue: as.Continue{},
+			}
+
+			var receivedBody []byte
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				receivedBody, _ = io.ReadAll(r.Body)
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(mockResponse)
+			}))
+			defer server.Close()
+
+			client, err := openpayments.NewAuthenticatedClient(walletAddress, pk, keyID, openpayments.WithHTTPClientAuthed(server.Client()))
+			assert.NoError(t, err)
+
+			grant, err := client.Grant.Request(context.Background(), openpayments.GrantRequestParams{
+				URL:         server.URL + "/",
+				RequestBody: requestBody,
+			})
+			assert.NoError(t, err)
+
+			var sentRequest as.GrantRequest
+			assert.NoError(t, json.Unmarshal(receivedBody, &sentRequest))
+			sentTokenRequest, err := sentRequest.AsGrantRequestWithAccessToken()
+			assert.NoError(t, err)
+			assert.Len(t, sentTokenRequest.AccessToken.Access, 1)
+			sentOutgoingAccess, err := sentTokenRequest.AccessToken.Access[0].AsAccessOutgoing()
+			assert.NoError(t, err)
+			assert.Equal(t, &tt.cardAuthorization, sentOutgoingAccess.CardAuthorization)
+
+			assert.NotNil(t, grant.AccessToken)
+			assert.Len(t, grant.AccessToken.Access, 1)
+			grantedOutgoingAccess, err := grant.AccessToken.Access[0].AsAccessOutgoing()
+			assert.NoError(t, err)
+			assert.Equal(t, responseCardAuthorization, grantedOutgoingAccess.CardAuthorization)
+		})
+	}
+}
