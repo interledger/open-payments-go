@@ -78,7 +78,33 @@ func (gr *Grant) IsGrantedWithSubject() bool {
 
 type parsedGrantRequest struct {
 	Client *as.Client
+	Access as.Access
 	encode func() (as.GrantRequest, error)
+}
+
+func validateCardAuthorization(cardAuthorization as.CardAuthorization) error {
+	if cardAuthorization.PinBlock != nil && cardAuthorization.Pwk == nil {
+		return fmt.Errorf("card authorization pwk is required when pinBlock is provided")
+	}
+
+	return nil
+}
+
+func validateGrantRequest(request parsedGrantRequest) error {
+	for i, accessItem := range request.Access {
+		outgoingAccess, err := accessItem.AsAccessOutgoing()
+		if err != nil {
+			return fmt.Errorf("failed to parse access item %d: %w", i, err)
+		}
+		if outgoingAccess.Type != as.OutgoingPayment || outgoingAccess.CardAuthorization == nil {
+			continue
+		}
+		if err := validateCardAuthorization(*outgoingAccess.CardAuthorization); err != nil {
+			return fmt.Errorf("access item %d: %w", i, err)
+		}
+	}
+
+	return nil
 }
 
 // decodes body into whichever concrete variant the caller built (access-token or subject)
@@ -106,6 +132,7 @@ func parseRequest(body as.GrantRequest) (parsedGrantRequest, error) {
 
 	return parsedGrantRequest{
 		Client: &tokenReq.Client,
+		Access: tokenReq.AccessToken.Access,
 		encode: func() (as.GrantRequest, error) {
 			var g as.GrantRequest
 			return g, g.FromGrantRequestWithAccessToken(tokenReq)
@@ -117,6 +144,9 @@ func (gs *GrantService) Request(ctx context.Context, params GrantRequestParams) 
 	parsed, err := parseRequest(params.RequestBody)
 	if err != nil {
 		return Grant{}, err
+	}
+	if err := validateGrantRequest(parsed); err != nil {
+		return Grant{}, fmt.Errorf("invalid grant request body: %w", err)
 	}
 
 	if params.ClientOverride != nil {
