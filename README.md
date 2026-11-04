@@ -1,7 +1,6 @@
 # Development
 
-**Requires:**
-
+## Prerequisites
 - go1.22+
 
 ## OpenAPI Specs
